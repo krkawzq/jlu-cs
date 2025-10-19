@@ -37,6 +37,7 @@ enum class TokenKind : uint16_t {
     LPAREN, RPAREN, LBRACK, RBRACK, LBRACE, RBRACE,
     AT, DOLLAR, DOT, COMMA, SEMI, COLON,
 
+    UNDEFINED,
     END,
     ERROR
 };
@@ -60,7 +61,7 @@ union ErrMsg {
 };
 
 struct Token {
-    TokenKind           kind;
+    TokenKind           kind = TokenKind::UNDEFINED;
     std::string_view    lexeme;
     Location            begin;
     Location            end;

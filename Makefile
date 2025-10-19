@@ -18,5 +18,8 @@ clean:
 run:
 	@./build/release/bin/Prim
 
-run_debug:
+run-debug:
 	@./build/debug/bin/Prim
+
+lexer:
+	@re2c -W -i -c -o src/include/lexer.hpp src/lexer.re
