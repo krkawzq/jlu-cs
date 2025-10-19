@@ -1,0 +1,34 @@
+{
+    "version": 6,
+    "configurePresets": [
+      {
+        "name": "macos-clang-debug",
+        "displayName": "macOS Clang + Ninja (Debug)",
+        "generator": "Ninja",
+        "binaryDir": "${sourceDir}/build/debug",
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Debug",
+          "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+          "CMAKE_C_COMPILER": "/usr/bin/clang",
+          "CMAKE_CXX_COMPILER": "/usr/bin/clang++"
+        }
+      },
+      {
+        "name": "macos-clang-release",
+        "displayName": "macOS Clang + Ninja (Release)",
+        "generator": "Ninja",
+        "binaryDir": "${sourceDir}/build/release",
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Release",
+          "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+          "CMAKE_C_COMPILER": "/usr/bin/clang",
+          "CMAKE_CXX_COMPILER": "/usr/bin/clang++"
+        }
+      }
+    ],
+    "buildPresets": [
+      { "name": "debug", "configurePreset": "macos-clang-debug" },
+      { "name": "release", "configurePreset": "macos-clang-release" }
+    ]
+}
+  

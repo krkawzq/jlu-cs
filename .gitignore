@@ -1,4 +1,10 @@
-*
-!*/
-!*.cpp
-!*.md
+.vscode
+.git
+
+build/*
+
+main
+main_debug
+
+src/include/lexer.hpp
+

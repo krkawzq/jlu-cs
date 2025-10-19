@@ -107,6 +107,13 @@ let obj = @{
 
 obj.x;  // 1
 obj.y;  // 2
+
+let x = 1;
+let y = 2;
+let obj = @{
+    let &y;
+}
+obj.x; // error, x is not defined in obj scope
 ```
 
 - `@` 运算符：将 Prim 的返回值改为其闭包空间
@@ -168,6 +175,7 @@ loop {               // loop 是 Prim
 
 ```prim
 $foo(x) {
+    let a = 1;
     x + 1
 }
 
@@ -219,7 +227,7 @@ result;  // 3
 ### `if` 语句
 
 ```prim
-if a > b {
+let cmp = if a > b {
     "greater"
 } else if a == b {
     "equal"
@@ -239,13 +247,17 @@ loop {
 #### 带标签的循环
 
 ```prim
-loop `outer` {
+let a = loop `outer` {
     loop `inner` {
         if condition {
-            break `outer`;  // 跳出外层循环
+            break `outer` 1;  // 跳出外层循环
+        } else {
+            break `outer` 0;
         }
     }
-}
+};
+
+() // unit, seen as None in python
 ```
 
 ### `break` 规则
@@ -275,14 +287,6 @@ add(1, 2);  // 3
 $modify_value(x) {
     x += 1;      // 修改局部拷贝
 }
-
-$modify_ref(&x) {
-    x += 1;      // 修改原槽
-}
-
-let a = 10;
-modify_value(a);   // a 仍为 10
-modify_ref(&a);    // a 变为 11
 ```
 
 | 参数形式 | 语义 | 等价于 |
@@ -300,6 +304,19 @@ $foo() {
     x;         // 错误！需要显式声明
     let &x;    // 正确：引用父作用域的 x
 }
+
+
+// closure
+
+$func()
+{
+    let x;
+    let a = x;
+    return a;
+}
+
+let &x;  // like let x = &x;
+
 ```
 
 ### 结构体
@@ -307,6 +324,36 @@ $foo() {
 结构体是使用 `@` 修饰的函数，返回闭包而非普通值：
 
 ```prim
+
+
+// @ is a special decorator
+
+
+let a = {
+    // scope
+    let a = 1
+} // a = 1
+
+let a = @{
+    let a = 1
+} // a.a = 1;
+
+$foo() {
+    let x = 1;
+    let y = 2;
+    return 0;
+}
+let a = foo(); // a = 0
+
+
+@struct
+
+
+
+
+
+
+
 // 方式 1：使用装饰器
 @struct $Point(x, y) {
     let x = x;
@@ -326,12 +373,6 @@ p.y;  // 2
 #### 装饰器原理
 
 `struct` 装饰器的定义：
-
-```prim
-$struct(prim) {
-    @prim  // 将 prim 的返回值改为闭包
-}
-```
 
 ### 捕获的嵌套
 
@@ -355,7 +396,7 @@ inner(5);  // 6
 ```prim
 $Point(x, y) @{
     let x, y;
-    
+
     $+(other) {
         Point(&x + other.x, &y + other.y)
     }
@@ -375,8 +416,8 @@ p3.y;  // 6
 ```prim
 $Callable(value) @{
     let value;
-    
-    $()() {
+
+    $()(args) {
         print("Called with value: ");
         print(&value);
     }
@@ -471,7 +512,7 @@ let value: i32 | str = 1;      // 正确
 value = "hello";               // 正确
 value = 3.14;                  // 错误（不是 i32 或 str）
 
-$process(data: i32 | str | none) {
+$process(data: i32 | str | unit) {
     if data == none {
         "no data"
     } else {
@@ -801,12 +842,12 @@ $read_file(path: str) {
     if !file_exists(path) {
         exit Status("文件不存在: " + path);
     }
-    
+
     let content = file_read(path);
     if content == none {
         exit Status("读取文件失败");
     }
-    
+
     content
 }
 
@@ -837,14 +878,14 @@ $main() {
         let file_status = @catch {
             read_file("data.txt")
         };
-        
+
         if !file_status.ok {
             exit Status("无法读取文件");
         }
-        
+
         process_data(file_status.value);
     };
-    
+
     if !status.ok {
         print("程序错误：" + status.message);
     }
@@ -889,7 +930,7 @@ $main() {
     let status = @catch {
         step2();
     };
-    
+
     print(status.message);  // 输出：步骤1失败
 }
 ```
@@ -910,13 +951,13 @@ $main() {
        }
        // ...
    }
-   
+
    // 上层函数：处理错误
    $get_user(id) {
        let status = @catch {
            db_query("SELECT * FROM users WHERE id=" + id)
        };
-       
+
        if !status.ok {
            return default_user();
        }
@@ -1090,7 +1131,7 @@ let _private_const = 200;
 // utils.string.prim
 pub $to_upper(s: str) { /* ... */ }
 
-// utils.array.prim  
+// utils.array.prim
 pub $to_upper(arr) { /* ... */ }
 
 // main.prim
