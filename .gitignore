@@ -4,8 +4,8 @@
 build/*
 lib/*
 
-./release
-./debug
+release
+debug
 
 src/include/lexer.hpp
 src/parser.c

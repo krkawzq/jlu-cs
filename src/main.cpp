@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
     
     // 检查是否有解析错误
     if (parser.has_errors()) {
-        println("\n❌ Parsing failed with {} error(s):\n", parser.get_errors().size());
+        println("\nParsing failed with {} error(s):\n", parser.get_errors().size());
         
         for (const auto& error : parser.get_errors()) {
             println("  Error at {}:{}:{}", 
@@ -203,7 +203,7 @@ int main(int argc, char* argv[]) {
         println("─────────────────────────────────────────────────────────────────");
         print_ast(*ast, 0);
     } else {
-        println("❌ Parsing failed: no AST generated");
+        println("Parsing failed: no AST generated");
         return 1;
     }
     
