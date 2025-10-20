@@ -2,9 +2,11 @@
 .git
 
 build/*
+lib/*
 
-main
-main_debug
+./release
+./debug
 
 src/include/lexer.hpp
-
+src/parser.c
+src/include/parser.h

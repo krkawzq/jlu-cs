@@ -10,7 +10,8 @@
           "CMAKE_BUILD_TYPE": "Debug",
           "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
           "CMAKE_C_COMPILER": "/usr/bin/clang",
-          "CMAKE_CXX_COMPILER": "/usr/bin/clang++"
+          "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+          "BISON_EXECUTABLE": "/opt/homebrew/opt/bison/bin/bison"
         }
       },
       {
@@ -22,7 +23,8 @@
           "CMAKE_BUILD_TYPE": "Release",
           "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
           "CMAKE_C_COMPILER": "/usr/bin/clang",
-          "CMAKE_CXX_COMPILER": "/usr/bin/clang++"
+          "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+          "BISON_EXECUTABLE": "/opt/homebrew/opt/bison/bin/bison"
         }
       }
     ],

@@ -1,0 +1,567 @@
+$test_comments() {
+    0
+};
+
+$test_literals() {
+    let dec = 42;
+    let hex = 0xABCD;
+    let oct = 0o755;
+    let bin = 0b1010;
+    let float1 = 3.14;
+    let float2 = 1.5e-10;
+    let float3 = 2e5;
+    let str1 = "hello world";
+    let str2 = "escaped \"quotes\" and \n newlines";
+    let bool_t = true;
+    let bool_f = false;
+    let null_val = null;
+    let unit = ();
+    
+    let sep_dec = 1'000'000;
+    let sep_hex = 0xFF'EE'DD;
+    
+    null
+};
+
+$test_identifiers() {
+    let x = 1;
+    let my_var = 2;
+    let _private = 3;
+    let CamelCase = 4;
+    let with123 = 5;
+    
+    null
+};
+
+$test_containers() {
+    let empty_list = [];
+    let list1 = [1, 2, 3];
+    let list2 = [1, 2, 3];
+    let nested_list = [[1, 2], [3, 4], [5, 6]];
+    
+    let empty_dict = {};
+    let dict1 = {"name": "Alice", "age": 30};
+    let dict2 = {"x": 1, "y": 2,};
+    let nested_dict = {"outer": {"inner": 42}};
+    
+    let single_tuple = (1,);
+    let pair = (1, 2);
+    let triple = (1, 2, 3);
+    let trailing = (1, 2,);
+    
+    let paren_expr = (1 + 2);
+    
+    null
+};
+
+$test_operators() {
+    let add = 1 + 2;
+    let sub = 5 - 3;
+    let mul = 3 * 4;
+    let div = 10 / 2;
+    let mod = 10 % 3;
+    
+    let eq = 1 == 1;
+    let neq = 1 != 2;
+    let lt = 1 < 2;
+    let gt = 3 > 2;
+    let le = 1 <= 1;
+    let ge = 2 >= 2;
+    
+    let and = true && false;
+    let or = true || false;
+    let not = !true;
+    
+    let unary_plus = +42;
+    let unary_minus = -42;
+    
+    let complex1 = 1 + 2 * 3;
+    let complex2 = (1 + 2) * 3;
+    let complex3 = a && b || c;
+    let complex4 = !x && y;
+    
+    null
+};
+
+$test_assignment() {
+    let x = 1;
+    x = 2;
+    x = y = z = 10;
+    
+    a = b + c;
+    d = e * f;
+    
+    null
+};
+
+$test_postfix() {
+    let arr = [1, 2, 3];
+    let elem = arr[0];
+    let nested = arr[1 + 1];
+    
+    let dict = {"key": "value"};
+    let val = dict["key"];
+    
+    let obj_field = obj.field;
+    let chain = obj.field.nested.deep;
+    
+    let result = func();
+    let with_args = func(1, 2, 3);
+    let trailing_comma = func(a, b);
+    
+    let chained = obj.method(arg)[0].field;
+    
+    null
+};
+
+$test_let_stmt() {
+    let x = 42;
+    let y: i32 = 100;
+    let z: i32 | str = "hello";
+    let w: i32 | str | unit = null;
+    
+    let a, b = (1, 2);
+    let p, q, r = (10, 20, 30);
+    let m, n = (1, 2);
+    
+    let &ref1, normal, &ref2 = (1, 2, 3);
+    
+    null
+};
+
+$test_let_import() {
+    let outer_x;
+    let outer_y, outer_z;
+    
+    null
+};
+
+$test_del_stmt() {
+    let x = 1;
+    let y = 2;
+    let z = 3;
+    
+    del x;
+    del y, z;
+    
+    null
+};
+
+$test_if_expr() {
+    let result1 = if true {
+        42
+    };
+    
+    let result2 = if false {
+        10
+    } else {
+        20
+    };
+    
+    let result3 = if x > 10 {
+        "big"
+    } else if x > 5 {
+        "medium"
+    } else {
+        "small"
+    };
+    
+    let result4 = if cond1 {
+        1
+    } else if cond2 {
+        2
+    } else if cond3 {
+        3
+    } else {
+        0
+    };
+    
+    null
+};
+
+$test_loop_expr() {
+    let counter = 0;
+    loop {
+        counter = counter + 1;
+        if counter > 5 {
+            break;
+        }
+    };
+    
+    let result = loop {
+        if condition {
+            break 42;
+        }
+    };
+    
+    loop `outer` {
+        loop `inner` {
+            if cond1 {
+                break `inner`;
+            };
+            if cond2 {
+                break `outer` value;
+            }
+        }
+    };
+    
+    null
+};
+
+$test_return_stmt() {
+    return;
+    return 42;
+    return (1, 2, 3);
+    return x + y;
+};
+
+$test_scope_expr() {
+    let result1 = {
+        let local = 10;
+        local * 2
+    };
+    
+    let result2 = {
+        let a = 1;
+        let b = 2;
+        a + b;
+    };
+    
+    let nested = {
+        let outer = 10;
+        {
+            let inner = 20;
+            outer + inner
+        }
+    };
+    
+    null
+};
+
+$test_unnamed_prim() {
+    let closure = @{
+        let x = 10;
+        let y = 20;
+    };
+    
+    let with_decorator = @decorator @{
+        let data = 42;
+    };
+    
+    let multi_decorator = @dec1 @dec2 @dec3 @{
+        let value = 100;
+    };
+    
+    null
+};
+
+$test_named_prim() {
+    $simple() {
+        42
+    };
+    
+    $with_params(x, y) {
+        x + y
+    };
+    
+    $with_types(x: i32, y: i32): i32 {
+        x * y
+    };
+    
+    $with_ref_param(&value) {
+        value = value + 1;
+    };
+    
+    $mixed_params(a, &b, c: i32) {
+        a + b + c
+    };
+    
+    $trailing_comma(x, y,) {
+        x - y
+    };
+    
+    $with_closure() @{
+        let x = 10;
+        
+        $get_x() {
+            x
+        };
+        
+        $set_x(new_val) {
+            x = new_val;
+        }
+    };
+    
+    null
+};
+
+$test_decorated_prim() {
+    @decorator1
+    $func1() {
+        0
+    };
+    
+    @dec1 @dec2
+    $func2(x) {
+        x
+    };
+    
+    @complex_decorator
+    $func3(a, b): i32 {
+        a + b
+    };
+    
+    null
+};
+
+$test_reference() {
+    let x = 1;
+    let ref_var = &x;
+    
+    let ref_lit = &42;
+    let ref_str = &"hello";
+    let ref_bool = &true;
+    let ref_null = &null;
+    let ref_unit = &();
+    
+    let ref_list = &[1, 2, 3];
+    let ref_tuple = &(1, 2);
+    let ref_dict = &{"key": "value"};
+    
+    let ref_expr = &(x + y);
+    let ref_call = &func;
+    let ref_index = arr[0];
+    let ref_field = obj.field;
+    
+    null
+};
+
+$test_reference_in_containers() {
+    let mixed_list = [1, &x, 3, &y];
+    let mixed_tuple = (a, &b, c);
+    let mixed_dict = {"normal": value, "ref": &other};
+    
+    null
+};
+
+$test_reference_in_params() {
+    func(1, &x, 3);
+    method(a, b, &c, d);
+    
+    null
+};
+
+$test_reference_return() {
+    $return_ref() {
+        return &value;
+    };
+    
+    $break_ref() {
+        loop {
+            if cond {
+                break &result;
+            }
+        }
+    };
+    
+    null
+};
+
+$test_reference_assignment() {
+    x = y;
+    let a = &b;
+    obj.field = value;
+    arr[0] = elem;
+    
+    null
+};
+
+$test_complex_cases() {
+    let case1 = if cond {
+        let temp = compute();
+        temp * 2
+    } else {
+        default_value
+    };
+    
+    let case2 = {
+        let step1 = func1();
+        let step2 = func2(step1);
+        let step3 = func3(step2);
+        step3
+    };
+    
+    let case3 = loop {
+        let val = get_next();
+        if is_done(val) {
+            break process(val);
+        }
+    };
+    
+    let case4 = [
+        func1(),
+        func2(),
+        func3()
+    ];
+    
+    let case5 = (
+        compute1(),
+        compute2(),
+        compute3()
+    );
+    
+    let case6 = {
+        "key1": value1(),
+        "key2": value2(),
+        "key3": value3()
+    };
+    
+    null
+};
+
+$test_nested_structures() {
+    let deep = [
+        {
+            "items": [
+                (1, 2),
+                (3, 4)
+            ]
+        },
+        {
+            "items": [
+                (5, 6),
+                (7, 8)
+            ]
+        }
+    ];
+    
+    null
+};
+
+$test_all_precedence() {
+    let p1 = a = b = c;
+    let p2 = a || b || c;
+    let p3 = a && b && c;
+    let p4 = a == b != c;
+    let p5 = a < b <= c;
+    let p6 = a + b - c;
+    let p7 = a * b / c % d;
+    let p8 = !a;
+    let p9 = +a;
+    let p10 = -a;
+    let p11 = a[0];
+    let p12 = a.b;
+    let p13 = a();
+    
+    let mixed = a + b * c == d && e || f;
+    let chain = obj.method(x, y)[0].field + value;
+    
+    null
+};
+
+$test_boundary_cases() {
+    let bc1 = {};
+    let bc2 = ();
+    let bc3 = [];
+    let bc4 = (1,);
+    let bc5 = (1 + 2);
+    let bc6 = ((x));
+    
+    let bc7 = {
+        let x = 1;
+        x
+    };
+    
+    let bc8 = {
+        let x = 1;
+        x;
+    };
+    
+    let bc9 = if true { 1 };
+    let bc10 = if true { 1; };
+    let bc11 = if true { 1 } else { 2 };
+    
+    null
+};
+
+$test_type_hints() {
+    let t1: i32 = 1;
+    let t2: str = "hello";
+    let t3: i32 | str = 42;
+    let t4: i32 | str | unit = null;
+    let t5: list | dict | tuple = [];
+    
+    $typed_func(x: i32, y: str): i32 | unit {
+        if x > 0 {
+            x
+        } else {
+            null
+        }
+    };
+    
+    null
+};
+
+$test_real_world_example() {
+    $Counter() @{
+        let count = 0;
+        
+        $increment() {
+            count = count + 1;
+        };
+        
+        $decrement() {
+            count = count - 1;
+        };
+        
+        $get() {
+            count
+        };
+        
+        $reset() {
+            count = 0;
+        }
+    };
+    
+    let counter = Counter();
+    counter.increment();
+    counter.increment();
+    counter.increment();
+    let value = counter.get();
+    counter.reset();
+    
+    null
+};
+
+$main() {
+    test_comments();
+    test_literals();
+    test_identifiers();
+    test_containers();
+    test_operators();
+    test_assignment();
+    test_postfix();
+    test_let_stmt();
+    test_let_import();
+    test_del_stmt();
+    test_if_expr();
+    test_loop_expr();
+    test_return_stmt();
+    test_scope_expr();
+    test_unnamed_prim();
+    test_named_prim();
+    test_decorated_prim();
+    test_reference();
+    test_reference_in_containers();
+    test_reference_in_params();
+    test_reference_return();
+    test_reference_assignment();
+    test_complex_cases();
+    test_nested_structures();
+    test_all_precedence();
+    test_boundary_cases();
+    test_type_hints();
+    test_real_world_example();
+    
+    0
+}

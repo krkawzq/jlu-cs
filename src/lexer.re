@@ -1,471 +1,752 @@
 /*
- * lexer.re
+ * lexer.re - Prim 词法分析器
  *
+ * 编译命令:
  *   re2c -W -i -c -o lexer.cpp lexer.re
  *   # -W: 告警   -i: 统计   -c: 条件机
  */
 
-#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
+#include <stack>
 #include <optional>
+#include <cassert>
 
-struct Location {
-    int   line   = 1;
-    int   col    = 1;      // 1-based
-    int   offset = 0;      // 0-based
-};
+#include "token.hpp"
+#include "macro.hpp"
 
-enum class TokenKind : uint16_t {
-    // 关键字
-    KW_LET, KW_DEL, KW_IF, KW_ELSE, KW_LOOP, KW_BREAK, KW_RETURN, KW_TRUE, KW_FALSE, KW_NULL,
+namespace prim {
 
-    // 标识符 / 字面量
-    IDENT,
-    INT_DEC, INT_HEX, INT_OCT, INT_BIN,
-    FLOAT_DEC,
-    STRING,
-    LABEL,  // `label_name`
-
-    // 运算符与符号
-    AMP, BANG,
-    PLUS, MINUS, STAR, SLASH, PERCENT,
-    EQ, EQEQ, NEQ, LT, GT, LE, GE,
-    ANDAND, OROR,
-
-    LPAREN, RPAREN, LBRACK, RBRACK, LBRACE, RBRACE,
-    AT, DOLLAR, DOT, COMMA, SEMI, COLON,
-
-    UNDEFINED,
-    END,
-    ERROR
-};
-
-enum class ErrKind : uint16_t {
-    None = 0,
-    IllegalChar,
-    UnterminatedString,
-    UnterminatedComment,
-    UnmatchedLeftBracket,   // EOF 时栈未空
-    UnmatchedRightBracket,  // 读到不匹配右括号
-    IllegalNumber,          // 非法数字（union.pos）
-    IllegalEscape,          // 非法转义（union.pos）
-    IllegalLabel,           // 标签错误（union.pos）
-    IllegalIdentifier       // 预留
-};
-
-union ErrMsg {
-    int pos;  // 数字/转义/标签：相对 token 起始 0-based 位置
-    int ch;   // 括号：相关括号的 ASCII
-};
-
-struct Token {
-    TokenKind           kind = TokenKind::UNDEFINED;
-    std::string_view    lexeme;
-    Location            begin;
-    Location            end;
-    ErrKind             err   = ErrKind::None;
-    ErrMsg              emsg  { .pos = -1 };
-};
+// ============================================================================
+// Lexer - 词法分析器
+// ============================================================================
 
 class Lexer {
 public:
-    explicit Lexer(std::string input)
-        : storage_(std::move(input))
+    explicit Lexer(std::string source)
+        : source_(std::move(source))
     {
-        storage_.push_back('\0'); // 哨兵
-        base_   = reinterpret_cast<const unsigned char*>(storage_.data());
-        limit_  = base_ + storage_.size();
+        // 添加哨兵字符，简化 EOF 检查
+        source_.push_back('\0');
+        
+        // 初始化指针
+        base_   = reinterpret_cast<const unsigned char*>(source_.data());
+        limit_  = base_ + source_.size();
         cursor_ = base_;
         marker_ = base_;
-        cond_   = Condition::INITIAL;
-        loc_    = {};
-        loc_.line = 1; loc_.col = 1; loc_.offset = 0;
+        
+        // 初始化状态
+        state_ = State::INITIAL;
+        
+        // 初始化位置
+        current_loc_ = Location{1, 1, 0};
     }
 
-    Token next() {
-        if (pending_unmatched_left_) {
-            pending_unmatched_left_ = false;
-            Token t;
-            t.kind  = TokenKind::ERROR;
-            t.lexeme= std::string_view{};
-            t.begin = loc_;
-            t.end   = loc_;
-            t.err   = ErrKind::UnmatchedLeftBracket;
-            t.emsg.ch = last_unclosed_left_;
-            return t;
+    // 获取下一个 token
+    force_inline_ Token next() {
+        // 如果有 pending 的未匹配左括号错误，先返回它
+        if (has_pending_bracket_error_) {
+            has_pending_bracket_error_ = false;
+            Token tok;
+            tok.type  = TokenType::ERROR;
+            tok.text  = std::string_view{};
+            tok.begin = current_loc_;
+            tok.end   = current_loc_;
+            tok.err   = ErrType::UnmatchedLeftBracket;
+            tok.emsg  = ErrMsg(pending_bracket_char_);
+            return tok;
         }
-        return lex_impl_();
+        
+        return scan();
+    }
+
+    // 检查是否到达文件末尾
+    [[nodiscard]] bool is_eof() const {
+        return cursor_ >= limit_ || *cursor_ == '\0';
     }
 
 private:
+    // ========================================================================
+    // re2c 配置
+    // ========================================================================
+    
     /*!re2c
         re2c:api:style = free-form;
-        re2c:define:YYCTYPE  = "unsigned char";
-        re2c:define:YYCURSOR = cursor_;
-        re2c:define:YYMARKER = marker_;
-        re2c:define:YYLIMIT  = limit_;
-        re2c:define:YYGETCONDITION = cond_;
-        re2c:define:YYSETCONDITION = "cond_ = @@;";
-        re2c:yyfill:enable   = 0;
-        re2c:flags:tags      = 0;
-        re2c:condprefix = "";
-        re2c:condenumprefix = "Condition::";
+        re2c:define:YYCTYPE     = "unsigned char";
+        re2c:define:YYCURSOR    = cursor_;
+        re2c:define:YYMARKER    = marker_;
+        re2c:define:YYLIMIT     = limit_;
+        re2c:define:YYGETCONDITION = state_;
+        re2c:define:YYSETCONDITION = "state_ = @@;";
+        re2c:yyfill:enable      = 0;
+        re2c:flags:tags         = 0;
+        re2c:condprefix         = "";
+        re2c:condenumprefix     = "State::";
     */
 
-    enum class Condition { INITIAL, STRING, COMMENT };
-    Condition cond_;
+    // ========================================================================
+    // 状态定义
+    // ========================================================================
+    
+    enum class State {
+        INITIAL,    // 初始状态
+        STRING,     // 字符串内部
+        COMMENT     // 多行注释内部
+    };
 
-    std::string              storage_;
-    const unsigned char*     base_   = nullptr;
-    const unsigned char*     limit_  = nullptr;
-    const unsigned char*     cursor_ = nullptr;
-    const unsigned char*     marker_ = nullptr;
+    // ========================================================================
+    // 成员变量
+    // ========================================================================
+    
+    std::string              source_;           // 源代码（包含哨兵）
+    const unsigned char*     base_    = nullptr; // 源代码起始指针
+    const unsigned char*     limit_   = nullptr; // 源代码结束指针
+    const unsigned char*     cursor_  = nullptr; // 当前扫描位置
+    const unsigned char*     marker_  = nullptr; // 回溯标记
+    
+    State                    state_;            // 当前状态
+    Location                 current_loc_;      // 当前位置
+    
+    const unsigned char*     token_start_ = nullptr;  // 当前 token 起始位置
+    Location                 token_begin_loc_;        // 当前 token 起始 Location
+    
+    std::stack<char>         bracket_stack_;          // 括号栈
+    bool                     has_pending_bracket_error_ = false;
+    char                     pending_bracket_char_      = '\0';
+    
+    bool                     in_multichar_token_ = false;  // 是否在多字符token中
 
-    Location                 loc_{};
-    const unsigned char*     tok_begin_ = nullptr;
-    Location                 begin_loc_{}, end_loc_{};
+    // ========================================================================
+    // 辅助函数
+    // ========================================================================
 
-    std::vector<char>        br_stack_{};
-    bool                     pending_unmatched_left_ = false;
-    int                      last_unclosed_left_     = 0;
-
-    bool                     in_multi_char_token_    = false;
-
-    void advance_span_(const unsigned char* from, const unsigned char* to) {
+    // 前进位置，更新 current_loc_
+    force_inline_ void advance(const unsigned char* from, const unsigned char* to) {
         for (auto p = from; p < to; ++p) {
-            unsigned char c = *p;
-            if (c == '\n') { loc_.line++; loc_.col = 1; loc_.offset++; }
-            else if (c == '\r') { loc_.offset++; }
-            else { loc_.col++; loc_.offset++; }
+            unsigned char ch = *p;
+            if (ch == '\n') {
+                current_loc_.line++;
+                current_loc_.col = 1;
+                current_loc_.offset++;
+            } else if (ch == '\r') {
+                // \r 只增加 offset，不改变行列
+                current_loc_.offset++;
+            } else {
+                current_loc_.col++;
+                current_loc_.offset++;
+            }
         }
     }
 
-    void start_token_() {
-        tok_begin_ = cursor_;
-        begin_loc_ = loc_;
-    }
-    Token finish_token_(TokenKind k) {
-        end_loc_ = loc_;
-        Token t;
-        t.kind   = k;
-        t.begin  = begin_loc_;
-        t.end    = end_loc_;
-        t.lexeme = std::string_view(
-            reinterpret_cast<const char*>(tok_begin_),
-            static_cast<size_t>(cursor_ - tok_begin_));
-        return t;
-    }
-    Token finish_error_(ErrKind ek, ErrMsg em = {.pos=-1}) {
-        Token t = finish_token_(TokenKind::ERROR);
-        t.err   = ek;
-        t.emsg  = em;
-        return t;
+    // 开始一个新 token
+    force_inline_ void start_token() {
+        token_start_ = cursor_;
+        token_begin_loc_ = current_loc_;
     }
 
-    void push_br_(char c) { br_stack_.push_back(c); }
-    std::optional<char> pop_br_if_match_(char right) {
-        if (br_stack_.empty()) return right;
-        char left = br_stack_.back();
-        if ((left=='(' && right==')') ||
-            (left=='[' && right==']') ||
-            (left=='{' && right=='}')) {
-            br_stack_.pop_back();
-            return std::nullopt;
+    // 完成一个 token
+    force_inline_ Token finish_token(TokenType type) {
+        Token tok;
+        tok.type  = type;
+        tok.begin = token_begin_loc_;
+        tok.end   = current_loc_;
+        tok.text  = std::string_view(
+            reinterpret_cast<const char*>(token_start_),
+            static_cast<size_t>(cursor_ - token_start_)
+        );
+        tok.err   = ErrType::None;
+        return tok;
+    }
+
+    // 完成一个错误 token
+    force_inline_ Token finish_error(ErrType err_type, ErrMsg err_msg = ErrMsg()) {
+        Token tok = finish_token(TokenType::ERROR);
+        tok.err  = err_type;
+        tok.emsg = err_msg;
+        return tok;
+    }
+
+    // 括号匹配：左括号
+    force_inline_ void push_bracket(char left) {
+        bracket_stack_.push(left);
+    }
+
+    // 括号匹配：右括号
+    // 返回 nullopt 表示匹配成功
+    // 返回 char 表示不匹配的右括号
+    force_inline_ std::optional<char> pop_bracket(char right) {
+        if (bracket_stack_.empty()) {
+            return right;  // 栈为空，右括号多余
         }
-        return right;
+        
+        char left = bracket_stack_.top();
+        
+        // 检查是否匹配
+        bool matched = (left == '(' && right == ')') ||
+                       (left == '[' && right == ']') ||
+                       (left == '{' && right == '}');
+        
+        if (matched) {
+            bracket_stack_.pop();
+            return std::nullopt;  // 匹配成功
+        } else {
+            return right;  // 不匹配
+        }
     }
 
-    Token lex_impl_() {
-        // —— 关键：消除递归。用本地循环重启扫描 —— //
+    // 检查关键字
+    force_inline_ TokenType check_keyword(std::string_view text) {
+        // 使用简单的 switch + 字符串比较
+        // 关键字不多，性能已经足够好
+        if (text == "let")    return TokenType::KW_LET;
+        if (text == "del")    return TokenType::KW_DEL;
+        if (text == "if")     return TokenType::KW_IF;
+        if (text == "else")   return TokenType::KW_ELSE;
+        if (text == "loop")   return TokenType::KW_LOOP;
+        if (text == "break")  return TokenType::KW_BREAK;
+        if (text == "return") return TokenType::KW_RETURN;
+        if (text == "true")   return TokenType::KW_TRUE;
+        if (text == "false")  return TokenType::KW_FALSE;
+        if (text == "null")   return TokenType::KW_NULL;
+        return TokenType::IDENT;
+    }
+
+    // ========================================================================
+    // 主扫描函数
+    // ========================================================================
+
+    force_inline_ Token scan() {
     RESTART:
-        if (!in_multi_char_token_) {
-            start_token_();
+        // 如果不是在多字符 token 中，开始新 token
+        if (!in_multichar_token_) {
+            start_token();
         }
 
         /*!re2c
-
+        // ====================================================================
+        // 字符类定义
+        // ====================================================================
+        
         WS      = [ \t\r\n]+;
         NL      = [\n] | "\r\n" | "\r";
+        
         A       = [A-Za-z_];
         AN      = [A-Za-z0-9_];
         LBL     = [A-Za-z0-9_ ];
+        
         D       = [0-9];
-        S       = ['];
         HEX     = [0-9a-fA-F];
         OCT     = [0-7];
         BIN     = [01];
+        S       = ['];
 
-        // ==== 运算符（双字符优先） ====
-        <INITIAL> "=="  { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::EQEQ);  }
-        <INITIAL> "!="  { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::NEQ);   }
-        <INITIAL> "<="  { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::LE);    }
-        <INITIAL> ">="  { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::GE);    }
-        <INITIAL> "&&"  { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::ANDAND);}
-        <INITIAL> "||"  { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::OROR);  }
+        // ====================================================================
+        // INITIAL 状态 - 正常扫描
+        // ====================================================================
 
-        <INITIAL> "&"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::AMP);   }
-        <INITIAL> "!"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::BANG);  }
-        <INITIAL> "="   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::EQ);    }
-        <INITIAL> "+"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::PLUS);  }
-        <INITIAL> "-"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::MINUS); }
-        <INITIAL> "*"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::STAR);  }
-        <INITIAL> "/"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::SLASH); }
-        <INITIAL> "%"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::PERCENT);}
-        <INITIAL> "<"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::LT);    }
-        <INITIAL> ">"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::GT);    }
-        <INITIAL> "("   { advance_span_(tok_begin_, cursor_); push_br_('('); return finish_token_(TokenKind::LPAREN); }
-        <INITIAL> ")"   {
-                            auto mis = pop_br_if_match_(')');
-                            advance_span_(tok_begin_, cursor_);
-                            if (mis) { ErrMsg em; em.ch = *mis; return finish_error_(ErrKind::UnmatchedRightBracket, em); }
-                            return finish_token_(TokenKind::RPAREN);
-                        }
-        <INITIAL> "["   { advance_span_(tok_begin_, cursor_); push_br_('['); return finish_token_(TokenKind::LBRACK); }
-        <INITIAL> "]"   {
-                            auto mis = pop_br_if_match_(']');
-                            advance_span_(tok_begin_, cursor_);
-                            if (mis) { ErrMsg em; em.ch = *mis; return finish_error_(ErrKind::UnmatchedRightBracket, em); }
-                            return finish_token_(TokenKind::RBRACK);
-                        }
-        <INITIAL> "{"   { advance_span_(tok_begin_, cursor_); push_br_('{'); return finish_token_(TokenKind::LBRACE); }
-        <INITIAL> "}"   {
-                            auto mis = pop_br_if_match_('}');
-                            advance_span_(tok_begin_, cursor_);
-                            if (mis) { ErrMsg em; em.ch = *mis; return finish_error_(ErrKind::UnmatchedRightBracket, em); }
-                            return finish_token_(TokenKind::RBRACE);
-                        }
-        <INITIAL> "@"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::AT);    }
-        <INITIAL> "$"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::DOLLAR);}
-        <INITIAL> "."   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::DOT);   }
-        <INITIAL> ","   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::COMMA); }
-        <INITIAL> ";"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::SEMI);  }
-        <INITIAL> ":"   { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::COLON); }
-
-        // ==== 注释与空白（改为 goto RESTART，避免递归） ====
-        <INITIAL> WS   { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <INITIAL> "//" [^\n\r]* ( NL )? { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <INITIAL> "/*"  {
-            advance_span_(tok_begin_, cursor_);
-            cond_ = Condition::COMMENT;
-            in_multi_char_token_ = true;
+        // --------------------------------------------------------------------
+        // 空白符和注释（跳过）
+        // --------------------------------------------------------------------
+        
+        <INITIAL> WS {
+            advance(token_start_, cursor_);
             goto RESTART;
         }
 
-        // ==== 字符串 ====
-        <INITIAL> "\""  {
-            advance_span_(tok_begin_, cursor_);
-            cond_ = Condition::STRING;
-            in_multi_char_token_ = true;
+        <INITIAL> "//" [^\n\r]* (NL)? {
+            advance(token_start_, cursor_);
             goto RESTART;
         }
 
-        // ==== 标签 ====
+        <INITIAL> "/*" {
+            advance(token_start_, cursor_);
+            state_ = State::COMMENT;
+            in_multichar_token_ = true;
+            goto RESTART;
+        }
+
+        // --------------------------------------------------------------------
+        // 双字符运算符（优先匹配）
+        // --------------------------------------------------------------------
+        
+        <INITIAL> "==" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::EQEQ);
+        }
+
+        <INITIAL> "!=" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::NEQ);
+        }
+
+        <INITIAL> "<=" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::LE);
+        }
+
+        <INITIAL> ">=" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::GE);
+        }
+
+        <INITIAL> "&&" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::ANDAND);
+        }
+
+        <INITIAL> "||" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::OROR);
+        }
+
+        // --------------------------------------------------------------------
+        // 单字符运算符
+        // --------------------------------------------------------------------
+        
+        <INITIAL> "&" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::AMP);
+        }
+
+        <INITIAL> "|" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::PIPE);
+        }
+
+        <INITIAL> "!" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::BANG);
+        }
+
+        <INITIAL> "=" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::EQ);
+        }
+
+        <INITIAL> "+" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::PLUS);
+        }
+
+        <INITIAL> "-" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::MINUS);
+        }
+
+        <INITIAL> "*" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::STAR);
+        }
+
+        <INITIAL> "/" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::SLASH);
+        }
+
+        <INITIAL> "%" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::PERCENT);
+        }
+
+        <INITIAL> "<" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::LT);
+        }
+
+        <INITIAL> ">" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::GT);
+        }
+
+        // --------------------------------------------------------------------
+        // 分隔符（括号需要匹配检查）
+        // --------------------------------------------------------------------
+        
+        <INITIAL> "(" {
+            push_bracket('(');
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::LPAREN);
+        }
+
+        <INITIAL> ")" {
+            auto mismatch = pop_bracket(')');
+            advance(token_start_, cursor_);
+            if (mismatch) {
+                return finish_error(ErrType::UnmatchedRightBracket, ErrMsg(*mismatch));
+            }
+            return finish_token(TokenType::RPAREN);
+        }
+
+        <INITIAL> "[" {
+            push_bracket('[');
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::LBRACK);
+        }
+
+        <INITIAL> "]" {
+            auto mismatch = pop_bracket(']');
+            advance(token_start_, cursor_);
+            if (mismatch) {
+                return finish_error(ErrType::UnmatchedRightBracket, ErrMsg(*mismatch));
+            }
+            return finish_token(TokenType::RBRACK);
+        }
+
+        <INITIAL> "{" {
+            push_bracket('{');
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::LBRACE);
+        }
+
+        <INITIAL> "}" {
+            auto mismatch = pop_bracket('}');
+            advance(token_start_, cursor_);
+            if (mismatch) {
+                return finish_error(ErrType::UnmatchedRightBracket, ErrMsg(*mismatch));
+            }
+            return finish_token(TokenType::RBRACE);
+        }
+
+        <INITIAL> "," {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::COMMA);
+        }
+
+        <INITIAL> ";" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::SEMI);
+        }
+
+        <INITIAL> ":" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::COLON);
+        }
+
+        <INITIAL> "." {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::DOT);
+        }
+
+        <INITIAL> "@" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::AT);
+        }
+
+        <INITIAL> "$" {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::DOLLAR);
+        }
+
+        // --------------------------------------------------------------------
+        // 标识符和关键字
+        // --------------------------------------------------------------------
+        
+        <INITIAL> A AN* {
+            advance(token_start_, cursor_);
+            std::string_view text(
+                reinterpret_cast<const char*>(token_start_),
+                cursor_ - token_start_
+            );
+            TokenType type = check_keyword(text);
+            return finish_token(type);
+        }
+
+        // --------------------------------------------------------------------
+        // 数字字面量
+        // --------------------------------------------------------------------
+        
+        DEC_G   = D+ (S D+)*;
+        HEX_G   = HEX+ (S HEX+)*;
+        OCT_G   = OCT+ (S OCT+)*;
+        BIN_G   = BIN+ (S BIN+)*;
+        EXP     = [eE] [+\-]? DEC_G;
+
+        // 十六进制整数
+        <INITIAL> ("0x" | "0X") HEX_G {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::INT_HEX);
+        }
+
+        // 八进制整数
+        <INITIAL> ("0o" | "0O") OCT_G {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::INT_OCT);
+        }
+
+        // 二进制整数
+        <INITIAL> ("0b" | "0B") BIN_G {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::INT_BIN);
+        }
+
+        // 十进制整数
+        <INITIAL> DEC_G {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::INT_DEC);
+        }
+
+        // 浮点数（四种形式）
+        <INITIAL> DEC_G "." DEC_G (EXP)? {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::FLOAT_DEC);
+        }
+
+        <INITIAL> DEC_G "." (EXP)? {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::FLOAT_DEC);
+        }
+
+        <INITIAL> "." DEC_G (EXP)? {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::FLOAT_DEC);
+        }
+
+        <INITIAL> DEC_G EXP {
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::FLOAT_DEC);
+        }
+
+        // --------------------------------------------------------------------
+        // 数字字面量错误
+        // --------------------------------------------------------------------
+
+        // 前缀后非法字符
+        <INITIAL> ("0x" | "0X") [^0-9a-fA-F'] {
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalNumber, ErrMsg(2));
+        }
+
+        <INITIAL> ("0o" | "0O") [^0-7'] {
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalNumber, ErrMsg(2));
+        }
+
+        <INITIAL> ("0b" | "0B") [^01'] {
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalNumber, ErrMsg(2));
+        }
+
+        // 分隔符误用：以 ' 开头
+        <INITIAL> S D+ {
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalNumber, ErrMsg(0));
+        }
+
+        // 连续分隔符：1''2
+        <INITIAL> D+ S S D* {
+            // 找到第一个 '' 的位置
+            const unsigned char* p = token_start_;
+            int pos = 0;
+            while (p + 1 < cursor_) {
+                if (*p == '\'' && *(p + 1) == '\'') {
+                    pos = int(p - token_start_);
+                    break;
+                }
+                ++p;
+            }
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalNumber, ErrMsg(pos));
+        }
+
+        // 末尾分隔符：123' (后跟空白或分隔符)
+        <INITIAL> D+ S / [ \t\r\n;,)\]}] {
+            // 找到 ' 的位置
+            const unsigned char* p = cursor_ - 1;
+            while (p >= token_start_ && *p != '\'') --p;
+            int pos = int(p - token_start_);
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalNumber, ErrMsg(pos));
+        }
+
+        // 小数点后非数字
+        <INITIAL> DEC_G "." [^0-9eE] {
+            int pos = int(cursor_ - token_start_) - 2;  // 指向 '.'
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalNumber, ErrMsg(pos));
+        }
+
+        // 指数后缺数字
+        <INITIAL> DEC_G [eE] [+\-]? [^0-9'] {
+            int pos = int(cursor_ - token_start_) - 1;
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalNumber, ErrMsg(pos));
+        }
+
+        // "." 后跟 "'"
+        <INITIAL> "." S {
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalNumber, ErrMsg(0));
+        }
+
+        // --------------------------------------------------------------------
+        // 字符串字面量
+        // --------------------------------------------------------------------
+        
+        <INITIAL> "\"" {
+            advance(token_start_, cursor_);
+            state_ = State::STRING;
+            in_multichar_token_ = true;
+            goto RESTART;
+        }
+
+        // --------------------------------------------------------------------
+        // 标签
+        // --------------------------------------------------------------------
+        
+        // 合法标签：`label`
         <INITIAL> "`" A LBL* "`" {
-            advance_span_(tok_begin_, cursor_);
-            return finish_token_(TokenKind::LABEL);
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::LABEL);
         }
+
+        // 空标签：``
         <INITIAL> "``" {
-            ErrMsg em; em.pos = 1;
-            advance_span_(tok_begin_, cursor_);
-            return finish_error_(ErrKind::IllegalLabel, em);
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalLabel, ErrMsg(1));
         }
+
+        // 非字母开头：`123`
         <INITIAL> "`" [^A-Za-z_\n`] LBL* "`" {
-            ErrMsg em; em.pos = 1;
-            advance_span_(tok_begin_, cursor_);
-            return finish_error_(ErrKind::IllegalLabel, em);
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalLabel, ErrMsg(1));
         }
+
+        // 包含非法字符
         <INITIAL> "`" A LBL* [^A-Za-z0-9_ \n`] [^`\n]* "`" {
-            // 第一个非法字符位置
-            const unsigned char* p = tok_begin_ + 1;
+            // 找到第一个非法字符位置
+            const unsigned char* p = token_start_ + 1;
             int pos = 1;
             while (p < cursor_ - 1) {
                 unsigned char c = *p;
-                bool ok = (c==' ') || (c=='_') ||
-                          (c>='0'&&c<='9') || (c>='A'&&c<='Z') || (c>='a'&&c<='z');
-                if (!ok) { pos = int(p - tok_begin_); break; }
+                bool valid = (c == ' ' || c == '_' ||
+                             (c >= '0' && c <= '9') ||
+                             (c >= 'A' && c <= 'Z') ||
+                             (c >= 'a' && c <= 'z'));
+                if (!valid) {
+                    pos = int(p - token_start_);
+                    break;
+                }
                 ++p;
             }
-            ErrMsg em; em.pos = pos;
-            advance_span_(tok_begin_, cursor_);
-            return finish_error_(ErrKind::IllegalLabel, em);
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalLabel, ErrMsg(pos));
         }
+
+        // 未闭合标签
         <INITIAL> "`" [^\n`]* {
-            ErrMsg em; em.pos = 0;
-            advance_span_(tok_begin_, cursor_);
-            return finish_error_(ErrKind::IllegalLabel, em);
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalLabel, ErrMsg(0));
         }
 
-        // ==== 关键字 / 标识符 ====
-        <INITIAL> A AN* {
-            advance_span_(tok_begin_, cursor_);
-            std::string_view s(reinterpret_cast<const char*>(tok_begin_), cursor_ - tok_begin_);
-            TokenKind k = TokenKind::IDENT;
-            if      (s == "let")    k = TokenKind::KW_LET;
-            else if (s == "del")    k = TokenKind::KW_DEL;
-            else if (s == "if")     k = TokenKind::KW_IF;
-            else if (s == "else")   k = TokenKind::KW_ELSE;
-            else if (s == "loop")   k = TokenKind::KW_LOOP;
-            else if (s == "break")  k = TokenKind::KW_BREAK;
-            else if (s == "return") k = TokenKind::KW_RETURN;
-            else if (s == "true")   k = TokenKind::KW_TRUE;
-            else if (s == "false")  k = TokenKind::KW_FALSE;
-            else if (s == "null")   k = TokenKind::KW_NULL;
-            return finish_token_(k);
-        }
-
-        // ==== 数字 ====
-        DEC_G   = D ( S D )*;
-        HEX_G   = HEX ( S HEX )*;
-        OCT_G   = OCT ( S OCT )*;
-        BIN_G   = BIN ( S BIN )*;
-        EXP     = [eE] [+\-]? DEC_G;
-
-        // 整数
-        <INITIAL> "0x" HEX_G { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::INT_HEX); }
-        <INITIAL> "0X" HEX_G { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::INT_HEX); }
-        <INITIAL> "0o" OCT_G { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::INT_OCT); }
-        <INITIAL> "0O" OCT_G { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::INT_OCT); }
-        <INITIAL> "0b" BIN_G { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::INT_BIN); }
-        <INITIAL> "0B" BIN_G { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::INT_BIN); }
-        <INITIAL> DEC_G      { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::INT_DEC); }
-
-        // 浮点（四形态）
-        <INITIAL> DEC_G "." DEC_G ( EXP )? { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::FLOAT_DEC); }
-        <INITIAL> DEC_G "." ( EXP )?        { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::FLOAT_DEC); }
-        <INITIAL> "." DEC_G ( EXP )?        { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::FLOAT_DEC); }
-        <INITIAL> DEC_G EXP                 { advance_span_(tok_begin_, cursor_); return finish_token_(TokenKind::FLOAT_DEC); }
-
-        // —— 非法数字（更精准的特化）——
-        // 0x/0o/0b 前缀后非合法基数
-        <INITIAL> "0x" [^0-9a-fA-F] { ErrMsg em; em.pos = 2; advance_span_(tok_begin_, cursor_); return finish_error_(ErrKind::IllegalNumber, em); }
-        <INITIAL> "0X" [^0-9a-fA-F] { ErrMsg em; em.pos = 2; advance_span_(tok_begin_, cursor_); return finish_error_(ErrKind::IllegalNumber, em); }
-        <INITIAL> "0o" [^0-7]       { ErrMsg em; em.pos = 2; advance_span_(tok_begin_, cursor_); return finish_error_(ErrKind::IllegalNumber, em); }
-        <INITIAL> "0O" [^0-7]       { ErrMsg em; em.pos = 2; advance_span_(tok_begin_, cursor_); return finish_error_(ErrKind::IllegalNumber, em); }
-        <INITIAL> "0b" [^01]        { ErrMsg em; em.pos = 2; advance_span_(tok_begin_, cursor_); return finish_error_(ErrKind::IllegalNumber, em); }
-        <INITIAL> "0B" [^01]        { ErrMsg em; em.pos = 2; advance_span_(tok_begin_, cursor_); return finish_error_(ErrKind::IllegalNumber, em); }
-
-        // 单引号误用：以 ' 开头
-        <INITIAL> S D+            { ErrMsg em; em.pos = 0; advance_span_(tok_begin_, cursor_); return finish_error_(ErrKind::IllegalNumber, em); }
-        // 连续单引号：1''2
-        <INITIAL> D+ S S [0-9]*  {
-            const unsigned char* p = tok_begin_;
-            int pos = 0;
-            while (p + 1 < cursor_) { if (*p=='\'' && *(p+1)=='\'') { pos = int(p - tok_begin_); break; } ++p; }
-            ErrMsg em; em.pos = pos;
-            advance_span_(tok_begin_, cursor_);
-            return finish_error_(ErrKind::IllegalNumber, em);
-        }
-        // 末尾单引号：123' + 分隔/结束
-        <INITIAL> D+ S / [ \t\r\n;,)\]}"] {
-            const unsigned char* p = tok_begin_;
-            int pos = 0;
-            while (p < cursor_) { if (*p=='\'') { pos = int(p - tok_begin_); break; } ++p; }
-            ErrMsg em; em.pos = pos;
-            advance_span_(tok_begin_, cursor_);
-            return finish_error_(ErrKind::IllegalNumber, em);
-        }
-
-        // 小数点后非数字：123.[^0-9]
-        <INITIAL> DEC_G "." [^0-9] {
-            ErrMsg em; em.pos = int((cursor_ - tok_begin_) - 1); // 指向 '.'
-            advance_span_(tok_begin_, cursor_);
-            return finish_error_(ErrKind::IllegalNumber, em);
-        }
-        // 指数后缺数字：123e(+|-)?
-        <INITIAL> DEC_G [eE] [+\-]? [^0-9] {
-            // 报错位置：e 或 e+/e- 后的那个非数字
-            ErrMsg em; em.pos = int((cursor_ - tok_begin_) - 1);
-            advance_span_(tok_begin_, cursor_);
-            return finish_error_(ErrKind::IllegalNumber, em);
-        }
-        // "." 后直接跟 "'"：."'
-        <INITIAL> "." S {
-            ErrMsg em; em.pos = 0;
-            advance_span_(tok_begin_, cursor_);
-            return finish_error_(ErrKind::IllegalNumber, em);
-        }
-
-        // 注：原有兜底规则（[0-9] 和 "."）会被前面更具体的规则覆盖，因此删除
-
-        // ==== STRING 条件 ====
-        <STRING> "\"" {
-            advance_span_(tok_begin_, cursor_);
-            cond_ = Condition::INITIAL;
-            in_multi_char_token_ = false;
-            return finish_token_(TokenKind::STRING);
-        }
-        <STRING> "\\\""  { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\\\"  { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\'"  { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\n"   { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\r"   { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\t"   { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\0"   { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\x" HEX+    { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\" OCT{1,3} { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\u" HEX{4}  { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\U" HEX{8}  { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> [^"\\\n\r]+    { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <STRING> "\\" ( NL | "\000" ) {
-            // 反斜杠+换行或EOF：报错未闭合字符串
-            advance_span_(tok_begin_, cursor_);
-            cond_ = Condition::INITIAL;
-            in_multi_char_token_ = false;
-            return finish_error_(ErrKind::UnterminatedString);
-        }
-        <STRING> "\\" [^\n\r\000] {
-            // 非法转义字符（排除换行和EOF）
-            ErrMsg em; em.pos = int((cursor_ - tok_begin_) - 2);
-            advance_span_(tok_begin_, cursor_);
-            cond_ = Condition::INITIAL;
-            in_multi_char_token_ = false;
-            return finish_error_(ErrKind::IllegalEscape, em);
-        }
-        <STRING> NL | "\000" {
-            advance_span_(tok_begin_, cursor_);
-            cond_ = Condition::INITIAL;
-            in_multi_char_token_ = false;
-            return finish_error_(ErrKind::UnterminatedString);
-        }
-
-        // ==== COMMENT 条件 ====
-        <COMMENT> "*/" {
-            advance_span_(tok_begin_, cursor_);
-            cond_ = Condition::INITIAL;
-            in_multi_char_token_ = false;
-            goto RESTART;
-        }
-        <COMMENT> NL         { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <COMMENT> "\000" {
-            advance_span_(tok_begin_, cursor_);
-            cond_ = Condition::INITIAL;
-            in_multi_char_token_ = false;
-            return finish_error_(ErrKind::UnterminatedComment);
-        }
-        <COMMENT> [^*\n\r\000]+ { advance_span_(tok_begin_, cursor_); goto RESTART; }
-        <COMMENT> "*"           { advance_span_(tok_begin_, cursor_); goto RESTART; }
-
-        // ==== EOF / 非法字符 ====
+        // EOF 和非法字符
+        // --------------------------------------------------------------------
+        
         <INITIAL> "\000" {
-            if (!br_stack_.empty()) {
-                last_unclosed_left_   = br_stack_.back();
-                br_stack_.clear();
-                pending_unmatched_left_ = true;
+            // 检查是否有未匹配的左括号
+            if (!bracket_stack_.empty()) {
+                pending_bracket_char_ = bracket_stack_.top();
+                bracket_stack_ = std::stack<char>();  // 清空栈
+                has_pending_bracket_error_ = true;
             }
-            advance_span_(tok_begin_, cursor_);
-            return finish_token_(TokenKind::END);
+            advance(token_start_, cursor_);
+            return finish_token(TokenType::END);
         }
 
         <INITIAL> . {
-            ErrMsg em; em.ch = int(*(cursor_ - 1));
-            advance_span_(tok_begin_, cursor_);
-            return finish_error_(ErrKind::IllegalChar, em);
+            char illegal_char = *(cursor_ - 1);
+            advance(token_start_, cursor_);
+            return finish_error(ErrType::IllegalChar, ErrMsg(illegal_char));
         }
+
+        // ====================================================================
+        // STRING 状态 - 字符串内部
+        // ====================================================================
+
+        // 闭合引号
+        <STRING> "\"" {
+            advance(token_start_, cursor_);
+            state_ = State::INITIAL;
+            in_multichar_token_ = false;
+            return finish_token(TokenType::STRING);
+        }
+
+        // 转义序列
+        <STRING> "\\\""  { advance(token_start_, cursor_); goto RESTART; }
+        <STRING> "\\\\"  { advance(token_start_, cursor_); goto RESTART; }
+        <STRING> "\\'"   { advance(token_start_, cursor_); goto RESTART; }
+        <STRING> "\\n"   { advance(token_start_, cursor_); goto RESTART; }
+        <STRING> "\\r"   { advance(token_start_, cursor_); goto RESTART; }
+        <STRING> "\\t"   { advance(token_start_, cursor_); goto RESTART; }
+        <STRING> "\\0"   { advance(token_start_, cursor_); goto RESTART; }
+        <STRING> "\\x" HEX+       { advance(token_start_, cursor_); goto RESTART; }
+        <STRING> "\\" OCT{1,3}    { advance(token_start_, cursor_); goto RESTART; }
+        <STRING> "\\u" HEX{4}     { advance(token_start_, cursor_); goto RESTART; }
+        <STRING> "\\U" HEX{8}     { advance(token_start_, cursor_); goto RESTART; }
+
+        // 普通字符
+        <STRING> [^"\\\n\r\000]+ { advance(token_start_, cursor_); goto RESTART; }
+
+        // 非法转义或未闭合
+        <STRING> "\\" (NL | "\000") {
+            advance(token_start_, cursor_);
+            state_ = State::INITIAL;
+            in_multichar_token_ = false;
+            return finish_error(ErrType::UnterminatedString);
+        }
+
+        <STRING> "\\" . {
+            // 反斜杠位置
+            int pos = int(cursor_ - token_start_) - 2;
+            advance(token_start_, cursor_);
+            state_ = State::INITIAL;
+            in_multichar_token_ = false;
+            return finish_error(ErrType::IllegalEscape, ErrMsg(pos));
+        }
+
+        <STRING> (NL | "\000") {
+            advance(token_start_, cursor_);
+            state_ = State::INITIAL;
+            in_multichar_token_ = false;
+            return finish_error(ErrType::UnterminatedString);
+        }
+
+        // ====================================================================
+        // COMMENT 状态 - 多行注释内部
+        // ====================================================================
+
+        // 注释结束
+        <COMMENT> "*/" {
+            advance(token_start_, cursor_);
+            state_ = State::INITIAL;
+            in_multichar_token_ = false;
+            goto RESTART;
+        }
+
+        // 换行
+        <COMMENT> NL {
+            advance(token_start_, cursor_);
+            goto RESTART;
+        }
+
+        // EOF - 未闭合注释
+        <COMMENT> "\000" {
+            advance(token_start_, cursor_);
+            state_ = State::INITIAL;
+            in_multichar_token_ = false;
+            return finish_error(ErrType::UnterminatedComment);
+        }
+
+        // 普通字符（包括 * 但不跟 /）
+        <COMMENT> [^*\n\r\000]+ { advance(token_start_, cursor_); goto RESTART; }
+        <COMMENT> "*"           { advance(token_start_, cursor_); goto RESTART; }
+
         */
 
-        // 防御返回
-        return finish_token_(TokenKind::END);
+        // 不应该到达这里
+        assert(false && "Lexer: unreachable code");
+        return finish_token(TokenType::END);
     }
 };
+
+} // namespace prim
