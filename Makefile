@@ -50,3 +50,10 @@ lexer:
 parser:
 	@/opt/homebrew/opt/bison/bin/bison -Wcounterexamples -d -o src/parser.c src/parser.y
 	@mv src/parser.h src/include/parser.h
+
+fake:
+	@for src in $(wildcard .fake/*.c); do \
+		bin=$${src%.c}; \
+		echo "Compiling $$src to $$bin"; \
+		clang "$$src" -o "$$bin"; \
+	done

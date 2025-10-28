@@ -1,0 +1,71 @@
+// prime.prim - Prime number calculation using Prim syntax
+let limit = 100;
+
+// Function to check if a number is prime
+$is_prime(n: i32): bool {
+    if n < 2 {
+        false
+    } else if n == 2 {
+        true
+    } else if n % 2 == 0 {
+        false
+    } else {
+        let i = 3;
+        loop `check` {
+            if i * i > n {
+                break `check` true;
+            }
+            if n % i == 0 {
+                break `check` false;
+            }
+            i = i + 2;
+        }
+    }
+}
+
+// Function to collect all primes up to limit
+$find_primes(limit: i32): list {
+    let primes = [];
+    let i = 2;
+    
+    loop `collect` {
+        if i > limit {
+            break `collect` primes;
+        };
+        
+        if is_prime(i) {
+            primes.push(i);
+        };
+        
+        i = i + 1;
+    };
+};
+
+// Function to format prime list as string
+$format_primes(primes: list): str {
+    let result = "Primes up to " + limit + ": ";
+    let first = true;
+    
+    loop `format` {
+        if primes.is_empty() {
+            break `format` result;
+        };
+        
+        let prime = primes[0];
+        primes = primes[1:];  // Remove first element
+        
+        if !first {
+            result = result + " ";
+        };
+        result = result + prime;
+        first = false;
+    };
+};
+
+// Main execution
+let primes = find_primes(limit);
+let output = format_primes(primes);
+
+// Return the result
+output
+

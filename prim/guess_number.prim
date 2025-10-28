@@ -1,0 +1,38 @@
+// guess_number.prim - Number guessing game using Prim syntax
+let target = 42;  // Fixed target for demonstration
+let attempts = 0;
+let max_attempts = 7;
+
+// Function to check if guess is correct
+$check_guess(guess: i32, target: i32): str {
+    if guess < target {
+        "Too small"
+    } else if guess > target {
+        "Too big" 
+    } else {
+        "Correct!"
+    }
+};
+
+// Function to validate input range
+$is_valid_guess(guess: i32): bool {
+    guess >= 1 && guess <= 100
+};
+
+// Simulate guessing process
+let guesses = [25, 50, 37, 42];
+
+loop `game` {
+    if attempts >= max_attempts {
+        break `game` "Game over - too many attempts";
+    };
+    
+    let current_guess = guesses[attempts];
+    attempts = attempts + 1;
+    
+    let result = check_guess(current_guess, target);
+    
+    if result == "Correct!" {
+        break `game` "You won!";
+    }
+}

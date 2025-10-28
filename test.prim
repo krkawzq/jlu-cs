@@ -489,7 +489,7 @@ $test_type_hints() {
     let t2: str = "hello";
     let t3: i32 | str = 42;
     let t4: i32 | str | unit = null;
-    let t5: list | dict | tuple = [,];
+    let t5: list | dict | tuple = [1,2];
     
     $typed_func(x: i32, y: str): i32 | unit {
         if x > 0 {

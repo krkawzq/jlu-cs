@@ -10,3 +10,5 @@ debug
 src/include/lexer.hpp
 src/parser.c
 src/include/parser.h
+
+.fake

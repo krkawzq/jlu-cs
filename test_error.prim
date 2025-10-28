@@ -1,0 +1,40 @@
+let a = "hello";
+
+let b = "world";
+
+$concat(l, r) {
+    return l.append(" ").append(r);
+};
+
+let hw = concat(a, b);
+
+@struct $Point(x, y) {
+    let x, y;
+    $distance() {
+        sqrt(x * x + y * y)
+    }
+};
+
+let p = Point(1, 2);
+p.x;
+p.y;
+
+print(p.distance());
+
+
+let ball = 
+$Circle(center, radius) @{
+    let center, radius;
+    center = round(center);
+    radius = round(radius);
+
+    $area() {
+        let pi: fp32 = 3.14;
+        pi * radius * radius;
+    }
+}(Point(1, 2), 3);
+
+
+ball.area();
+
+a = (,)
