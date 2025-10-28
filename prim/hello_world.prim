@@ -1,2 +1,1 @@
-// hello_world.prim - Simple greeting with Prim syntax
-print("Hello, Prim!")
+let a = 1;
