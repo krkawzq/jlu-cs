@@ -1,0 +1,10 @@
+let sum_to = @jit $[](n) {
+    let i = 0;
+    let sum = 0;
+    loop {
+        if i >= n { break sum; };
+        sum = sum + i;
+        i = i + 1;
+    }
+};
+sum_to(20000)

@@ -1,0 +1,20 @@
+let Counter = $[](initial) {
+    @{
+        let value = initial;
+        let next = @jit $[&value](step) {
+            value = value + step;
+            value
+        };
+        let read = $[&value]() { value };
+    }
+};
+let a = Counter(0);
+let b = Counter(100);
+let detached = a.next;
+std.print(detached(2));
+std.print(a.read());
+std.print(b.next(3));
+a.value = 40;
+std.print(detached(1));
+std.assert(a.read() == 41);
+std.assert(b.read() == 103);

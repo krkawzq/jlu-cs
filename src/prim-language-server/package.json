@@ -1,0 +1,129 @@
+{
+  "name": "prim-language",
+  "displayName": "Prim Language",
+  "description": "Prim Core 1 language server: semantic highlighting, navigation, completion and diagnostics.",
+  "version": "0.4.0",
+  "main": "./extension.js",
+  "activationEvents": ["onLanguage:prim", "onLanguage:prim-interface"],
+  "extensionKind": ["workspace"],
+  "publisher": "krkawzq",
+  "icon": "icons/logo.png",
+  "galleryBanner": {
+    "color": "#15171D",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "prim",
+    "syntax-highlighting",
+    "language-server"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/krkawzq/jlu-cs"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "prim",
+        "aliases": [
+          "Prim",
+          "prim"
+        ],
+        "extensions": [
+          ".pr"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/prim-light.svg",
+          "dark": "./icons/prim-dark.svg"
+        }
+      },
+      {
+        "id": "prim-interface",
+        "aliases": ["Prim Interface", "pri"],
+        "extensions": [".pri"],
+        "configuration": "./language-configuration.json",
+        "icon": { "light": "./icons/prim-light.svg", "dark": "./icons/prim-dark.svg" }
+      }
+    ],
+    "configuration": {
+      "title": "Prim",
+      "properties": {
+        "prim.diagnostics.warnings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show unused bindings, shadowed bindings, unreachable code, and statically decidable call or field warnings."
+        },
+        "prim.inlayHints.types": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show statically inferred types next to variable declarations."
+        },
+        "prim.inlayHints.parameters": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show parameter names and reference modes next to call arguments."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[prim]": { "editor.semanticHighlighting.enabled": true },
+      "[prim-interface]": { "editor.semanticHighlighting.enabled": true }
+    },
+    "semanticTokenScopes": [
+      {
+        "language": "prim-interface",
+        "scopes": {
+          "type": ["entity.name.type.prim"], "function": ["entity.name.function.prim"],
+          "parameter": ["variable.parameter.prim"], "variable": ["variable.other.prim"],
+          "property": ["variable.other.property.prim"], "namespace": ["entity.name.namespace.prim"]
+        }
+      },
+      {
+        "language": "prim",
+        "scopes": {
+          "type": ["entity.name.type.prim"],
+          "function": ["entity.name.function.prim"],
+          "parameter": ["variable.parameter.prim"],
+          "variable": ["variable.other.prim"],
+          "property": ["variable.other.property.prim"],
+          "namespace": ["entity.name.namespace.prim"]
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "prim-interface",
+        "scopeName": "source.prim-interface",
+        "path": "./syntaxes/pri.tmLanguage.json"
+      },
+      {
+        "language": "prim",
+        "scopeName": "source.prim",
+        "path": "./syntaxes/prim.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "node ../../scripts/prim-language-server/sync-builtins.js --check",
+    "test": "node --test test/*.test.js && node test/tokenize.js test/sample.pr",
+    "test:parity": "node --test test/parity.test.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.0.0",
+    "vscode-oniguruma": "^2.0.0",
+    "vscode-textmate": "^9.0.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "9.0.1",
+    "vscode-languageserver": "9.0.1",
+    "vscode-languageserver-textdocument": "1.0.12"
+  }
+}

@@ -1,0 +1,102 @@
+[
+  {
+    "id": "closures",
+    "tab": "closures.pr",
+    "title": "两种闭包",
+    "kind": "code",
+    "mode": "interpreter",
+    "code": "let offset = 3;\nlet add = $[offset](x) { x + offset };\n\nlet point = @{\n    let x = 1;\n    let y = 2;\n};\n\nstd.print(add(39));\nstd.print(point.x + point.y);\n\n// 两者是同一种结构：有没有代码入口\nstd.print(std.inspect.describe(add).kind);\nstd.print(std.inspect.describe(point).kind);",
+    "description": "可调用闭包与数据闭包；describe 报告各自的种类。",
+    "expected": "42、3，随后是 function 与 object。"
+  },
+  {
+    "id": "capture",
+    "tab": "capture.pr",
+    "title": "值捕获与槽捕获",
+    "kind": "code",
+    "mode": "interpreter",
+    "code": "let amount = 200;\nlet snapshot = $[amount]() { amount };\nlet shared = $[&amount]() { amount };\namount = 300;\nstd.print(snapshot());\nstd.print(shared());\n\nlet s = std.get(std.inspect.captures(snapshot), 0);\nlet r = std.get(std.inspect.captures(shared), 0);\nstd.print(s.mode + \" → 槽 #\" + std.str(s.slot_id));\nstd.print(r.mode + \" → 槽 #\" + std.str(r.slot_id));",
+    "description": "captures 报告每个捕获的模式与槽号。",
+    "expected": "200、300；value 与 slot 指向不同槽号。"
+  },
+  {
+    "id": "accumulator",
+    "tab": "accumulator.pr",
+    "title": "订单金额汇总器",
+    "kind": "code",
+    "mode": "interpreter",
+    "code": "let Accumulator = $[]() {\n    @{\n        let total = 0;\n        let add = $[&total](amount) {\n            total = total + amount;\n        };\n        let read = $[&total]() { total };\n    }\n};\nlet orders = Accumulator();\norders.add(200);\norders.add(300);\nstd.print(orders.read());\n\n// 摊开这个对象：字段各占一个槽\nlet fields = std.inspect.members(orders);\nlet i = 0;\nloop {\n    if i == std.len(fields) { break; };\n    let m = std.get(fields, i);\n    std.print(m.name + \" → 槽 #\" + std.str(m.slot_id));\n    i = i + 1;\n};\n\n// add 与 read 捕获的，正是 total 那个槽\nlet a = std.get(std.inspect.captures(orders.add), 0);\nlet r = std.get(std.inspect.captures(orders.read), 0);\nstd.print(\"add  捕获 total → 槽 #\" + std.str(a.slot_id));\nstd.print(\"read 捕获 total → 槽 #\" + std.str(r.slot_id));",
+    "description": "members 列出字段的槽，captures 显示 add / read 共享 total。",
+    "expected": "500；三处 total 的槽号相同。"
+  },
+  {
+    "id": "lifetime",
+    "tab": "lifetime.pr",
+    "title": "逃逸的捕获槽",
+    "kind": "code",
+    "mode": "interpreter",
+    "code": "let make = $[]() {\n    let total = 0;\n    $[&total](amount) {\n        total = total + amount;\n        total\n    }\n};\nlet add = make();\nstd.gc.collect();\nstd.print(add(200));\nstd.print(add(300));\n\nlet held = std.get(std.inspect.captures(add), 0);\nstd.print(\"total 仍在槽 #\" + std.str(held.slot_id));",
+    "description": "make 返回、GC 运行之后，捕获槽依然可达。",
+    "expected": "200、500；[stats] 中可见 gc_collections。"
+  },
+  {
+    "id": "jit-shared",
+    "tab": "jit_shared.pr",
+    "title": "解释与本机共享状态",
+    "kind": "code",
+    "mode": "jit",
+    "code": "let total = 0;\nlet add = $[&total](amount) {\n    total = total + amount;\n};\nlet native = jit(add);\nstd.print(std.inspect.jit(native).state);\nnative(200);\nadd(300);\nstd.print(total);\nstd.print(std.inspect.jit(native).state);\n\nlet a = std.get(std.inspect.captures(add), 0);\nlet n = std.get(std.inspect.captures(native), 0);\nstd.print(a.slot_id == n.slot_id);",
+    "description": "切到“解释”模式再运行：结果相同，state 保持 uncompiled。",
+    "expected": "uncompiled、500、ready、true。"
+  },
+  {
+    "id": "pipeline",
+    "tab": "pipeline.pr",
+    "title": "源码到机器码",
+    "kind": "code",
+    "mode": "jit",
+    "code": "let square = @jit $[](x) { x * x };\nstd.print(\"=== 源码 ===\");\nstd.print(std.inspect.source(square));\nstd.print(\"=== AST ===\");\nstd.print(std.ast.dump(std.inspect.ast(square)));\nstd.print(\"=== Core IR ===\");\nstd.print(std.inspect.core_ir(square));\nstd.inspect.compile(square);\nstd.print(\"=== 机器码 ===\");\nstd.print(std.inspect.disassemble(square));\nstd.print(\"=== 调用 ===\");\nstd.print(square(7));",
+    "description": "compile 只准备入口、不执行函数体；之后 disassemble 读出已加载的指令。",
+    "expected": "四层表示，最后 49。需要 JIT 模式。"
+  },
+  {
+    "id": "jit",
+    "tab": "matmul.pr",
+    "title": "矩阵乘法 · 解释 / JIT",
+    "kind": "terminal",
+    "mode": "jit",
+    "file": "src/presentation/scenarios/jit.pr",
+    "description": "80×80 整数矩阵乘法，每次调用 51.2 万次乘加。分别用“解释”和“JIT”运行同一份代码。",
+    "expected": "两种模式的 result 与 checksum 相同；JIT 的 warm_total_ms 远小于解释。"
+  },
+  {
+    "id": "orders",
+    "tab": "orders.pr",
+    "title": "订单处理 · Prim",
+    "kind": "terminal",
+    "mode": "jit",
+    "file": "src/presentation/scenarios/orders.pr",
+    "description": "读取 orders.csv，筛选、按八类汇总并写出报告。",
+    "expected": "有效订单 413 条，八个类别金额与 checksum 在两种模式下一致。"
+  },
+  {
+    "id": "snake",
+    "tab": "snake.pr",
+    "title": "贪吃蛇",
+    "kind": "terminal",
+    "mode": "jit",
+    "file": "src/prim-rs/examples/snake.pr",
+    "description": "点击终端后：方向键 / WASD 移动，P 暂停，R 重启，Q 退出。",
+    "expected": "真实 PTY 会话，不是浏览器模拟。"
+  },
+  {
+    "id": "jit-native",
+    "tab": "native.pr",
+    "title": "真实机器码",
+    "kind": "terminal",
+    "mode": "jit",
+    "file": "src/presentation/scenarios/jit.pr",
+    "description": "--inspect 分支：compile / native / disassemble 读取同一内核的已加载字节。",
+    "expected": "origin=loaded-memory；calls_before=0，calls_after=1。"
+  }
+]

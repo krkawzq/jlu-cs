@@ -1,0 +1,8 @@
+let count = 0;
+let next = @jit $[&count]() { count = count + 1; count };
+let run = @jit $[next](n) {
+    let i = 0;
+    loop { if i >= n { break; }; next(); i = i + 1; }
+};
+run(5000);
+count

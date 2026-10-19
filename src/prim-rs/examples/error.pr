@@ -1,0 +1,5 @@
+let divide = @jit $[](a, b) {
+    std.print("the body executes once");
+    a / b
+};
+divide(10, 0);

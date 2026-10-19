@@ -1,0 +1,21 @@
+let is_prime = @jit $[](n) {
+    if n < 2 { return false; };
+    let divisor = 2;
+    loop {
+        if divisor * divisor > n { break true; };
+        if n % divisor == 0 { break false; };
+        divisor = divisor + 1;
+    }
+};
+let n = 2;
+let count = 0;
+loop {
+    if n > 100 { break; };
+    if is_prime(n) {
+        std.print(n);
+        count = count + 1;
+    };
+    n = n + 1;
+};
+std.assert(count == 25);
+std.print("prime count: " + std.str(count));

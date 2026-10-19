@@ -1,0 +1,11 @@
+# Workspace root for the Rust implementation in src/prim-rs.
+# Keeping the crate in its own directory leaves room for future crates while
+# letting cargo commands run from the repository root.
+[workspace]
+resolver = "3"
+members = ["src/prim-rs"]
+default-members = ["src/prim-rs"]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

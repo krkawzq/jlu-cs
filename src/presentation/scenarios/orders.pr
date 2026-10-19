@@ -1,0 +1,91 @@
+let OrderStore = $[](capacity) {
+    @{
+        let count = 0;
+        let categories = std.array(capacity, 0);
+        let quantities = std.array(capacity, 0);
+        let prices = std.array(capacity, 0);
+        let states = std.array(capacity, 0);
+        let load = $[&count, categories, quantities, prices, states](file) {
+            let text = std.fs.read_text(file);
+            let size = std.len(text);
+            let i = 0;
+            let start = 0;
+            let field = 0;
+            count = 0;
+            loop {
+                if i >= size { break; };
+                let ch = std.text.at(text, i);
+                if ch == "," || ch == "\n" {
+                    let value = std.parse_int(std.text.slice(text, start, i));
+                    std.assert(value != ());
+                    let column = if field == 0 { categories }
+                        else if field == 1 { quantities }
+                        else if field == 2 { prices } else { states };
+                    std.set(column, count, value);
+                    field = field + 1;
+                    if ch == "\n" {
+                        std.assert(field == 4);
+                        count = count + 1;
+                        field = 0;
+                    };
+                    start = i + 1;
+                };
+                i = i + 1;
+            };
+            std.assert(field == 0);
+        };
+        let summarize = @jit $[&count, categories, quantities, prices, states]() {
+            let accepted = 0;
+            let total = 0;
+            let groups = std.array(8, 0);
+            let i = 0;
+            loop {
+                if i >= count { break; };
+                let quantity = std.get(quantities, i);
+                if std.get(states, i) == 1 && quantity >= 3 {
+                    let amount = quantity * std.get(prices, i);
+                    let category = std.get(categories, i);
+                    std.set(groups, category, std.get(groups, category) + amount);
+                    total = total + amount;
+                    accepted = accepted + 1;
+                };
+                i = i + 1;
+            };
+            @{ let accepted = accepted; let total_cents = total; let groups = groups; }
+        };
+    }
+};
+let all_start = std.time.now_ms();
+let store = OrderStore(2000);
+let load_start = std.time.now_ms();
+store.load("orders.csv");
+let load_ms = std.time.now_ms() - load_start;
+let first_start = std.time.now_ms();
+let report = store.summarize();
+let first_ms = std.time.now_ms() - first_start;
+let repeats = 5;
+let round = 0;
+let checksum = 0;
+let warm_start = std.time.now_ms();
+loop {
+    if round == repeats { break; };
+    checksum = checksum + store.summarize().total_cents;
+    round = round + 1;
+};
+let warm_ms = std.time.now_ms() - warm_start;
+let result = "rows=" + std.str(store.count) + "\naccepted=" + std.str(report.accepted)
+    + "\ntotal_cents=" + std.str(report.total_cents) + "\n";
+let group = 0;
+loop {
+    if group == 8 { break; };
+    result = result + "group_" + std.str(group) + "=" + std.str(std.get(report.groups, group)) + "\n";
+    group = group + 1;
+};
+std.fs.write_text("order-report.txt", result);
+std.write(result);
+std.print("load_ms=" + std.str(load_ms));
+std.print("first_ms=" + std.str(first_ms));
+std.print("warm_total_ms=" + std.str(warm_ms));
+std.print("repeats=" + std.str(repeats));
+std.print("checksum=" + std.str(checksum));
+std.print("total_ms=" + std.str(std.time.now_ms() - all_start));

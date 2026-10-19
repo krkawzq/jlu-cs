@@ -1,0 +1,16 @@
+let sum_to = @jit $[](n) {
+    let i = 0;
+    let sum = 0;
+    loop {
+        if i > n { break sum; };
+        sum = sum + i;
+        i = i + 1;
+    }
+};
+std.print(sum_to(1000));
+std.print(sum_to(1000));
+let factorial = @jit $[](n) {
+    if n == 0 { 1 } else { n * self(n - 1) }
+};
+std.print(factorial(10));
+std.assert(factorial(5) == 120);

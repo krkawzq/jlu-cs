@@ -1,0 +1,11 @@
+let sum = @jit $[](n) {
+    let items = std.array(n, 2);
+    let i = 0;
+    let total = 0;
+    loop {
+        if i >= n { break total; };
+        total = total + std.get(items, i);
+        i = i + 1;
+    }
+};
+sum(10000)

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="prim-token" content="__TOKEN__"><title>Prim · 只用闭包，能走多远？</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="preload" href="/static/fonts/NotoSerifSC-Regular.subset.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/SourceSerif4-Var.woff2" as="font" type="font/woff2" crossorigin>
+<!-- EDITOR_CSS -->
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/diagrams.js" defer></script>
+<script type="module" src="/assets/editor.js"></script>
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#stage">跳到幻灯片</a>
+<header class="appbar">
+ <a class="brand" href="#01"><img src="/static/logo.svg" alt=""><strong>Prim</strong><span id="brand-chapter"></span></a>
+ <nav aria-label="展示工具">
+  <button id="overview-button" class="ghost">目录 <kbd>O</kbd></button>
+  <button id="fullscreen-button" class="ghost">全屏 <kbd>F</kbd></button>
+ </nav>
+</header>
+<main id="stage" tabindex="-1" aria-label="课堂幻灯片"><div id="deck" class="deck"><div class="loading">正在准备展示…</div></div></main>
+<footer class="controls">
+ <span id="chapter-label" class="chapter-label"></span>
+ <div class="pager"><button id="prev" class="icon" aria-label="上一页">←</button><span id="counter" aria-live="polite">01 / 32</span><button id="next" class="icon" aria-label="下一页">→</button></div>
+ <span class="key-hint">← → 翻页 · 代码页内用 PageUp / PageDown · O 目录</span>
+ <div id="progress" aria-hidden="true"></div>
+</footer>
+<div id="rig-pool" aria-hidden="true">
+ <div id="rig" class="rig">
+  <div class="rig-bar">
+   <span id="editor-name" class="rig-file">demo.pr</span>
+   <div id="mode" class="segmented" role="radiogroup" aria-label="执行方式">
+    <button role="radio" data-mode="interpreter" aria-checked="true">解释</button>
+    <button role="radio" data-mode="jit" aria-checked="false">JIT</button>
+    <button role="radio" data-mode="check" aria-checked="false">检查</button>
+   </div>
+   <span class="spacer"></span>
+   <button id="editor-return" class="ghost small" hidden>← 回到示例</button>
+   <button id="reset-demo" class="ghost small" title="恢复原始代码">重置</button>
+   <button id="stop" class="ghost small" disabled>停止</button>
+   <button id="run" class="primary small">运行 <kbd>Ctrl ↵</kbd></button>
+  </div>
+  <div class="rig-grid">
+   <section class="pane editor-pane"><div class="pane-title"><span>代码</span><span class="pane-hint">补全 · 悬停 · F12 跳转 · F2 重命名</span></div><div id="editor" aria-label="代码编辑器"></div></section>
+   <section class="pane terminal-pane"><div class="pane-title"><span>执行结果</span><span id="run-status" role="status">尚未运行</span><a id="artifact" hidden download="order-report.txt">下载报告</a></div><div id="terminal" aria-label="真实交互终端"></div></section>
+  </div>
+  <div class="rig-status"><span id="runtime-status" role="status">正在连接执行程序…</span><span id="language-status" role="status">正在连接语言服务…</span></div>
+ </div>
+</div>
+<dialog id="overview" aria-labelledby="overview-title"><div class="panel-heading"><h2 id="overview-title">目录</h2><button id="overview-close" class="ghost">返回</button></div><div id="overview-grid"></div></dialog>
+<div id="message" class="toast" role="status" hidden></div>
+</body></html>

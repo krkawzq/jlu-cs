@@ -1,0 +1,10 @@
+let traced = $[](f) {
+    $[f](x) {
+        std.print("calling wrapped closure");
+        f(x)
+    }
+};
+let compiled_wrapper = @jit @traced $[](x) { x * 2 };
+let compiled_function = @traced @jit $[](x) { x * 3 };
+std.print(compiled_wrapper(7));
+std.print(compiled_function(7));

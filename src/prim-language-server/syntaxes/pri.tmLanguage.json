@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Prim Interface",
+  "scopeName": "source.prim-interface",
+  "patterns": [
+    { "include": "source.prim#comments" },
+    { "match": "\\b(type)\\s+([A-Za-z_][A-Za-z0-9_]*)", "captures": {
+      "1": { "name": "storage.type.prim" }, "2": { "name": "entity.name.type.prim" }
+    } },
+    { "match": "\\b(let)\\s+([A-Za-z_][A-Za-z0-9_]*)", "captures": {
+      "1": { "name": "keyword.other.let.prim" }, "2": { "name": "variable.other.declaration.prim" }
+    } },
+    { "include": "#parameters" },
+    { "include": "#types" },
+    { "name": "keyword.operator.prim", "match": "->|[=|&@$]" },
+    { "name": "punctuation.separator.prim", "match": "[{}\\[\\]();,:]" }
+  ],
+  "repository": {
+    "parameters": {
+      "begin": "\\(", "end": "\\)",
+      "name": "meta.function.parameters.prim",
+      "patterns": [
+        { "include": "source.prim#comments" },
+        { "match": "([A-Za-z_][A-Za-z0-9_]*)(\\s*:)", "captures": {
+          "1": { "name": "variable.parameter.prim" }, "2": { "name": "punctuation.separator.prim" }
+        } },
+        { "include": "#parameters" },
+        { "include": "#types" },
+        { "name": "keyword.operator.prim", "match": "->|[|&@$]" }
+      ]
+    },
+    "types": {
+      "patterns": [
+        { "name": "support.type.prim", "match": "\\b(int|float|bool|str|unit|closure|callable|any)\\b" },
+        { "name": "entity.name.type.prim", "match": "[A-Za-z_][A-Za-z0-9_]*" }
+      ]
+    }
+  }
+}

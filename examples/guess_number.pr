@@ -1,0 +1,45 @@
+// Deterministic guesses keep the example runnable without interactive input.
+let target = 42;
+let attempts = 0;
+let max_attempts = 7;
+
+let check_guess = $[](guess, target) {
+    if guess < target {
+        "Too small"
+    } else if guess > target {
+        "Too big"
+    } else {
+        "Correct!"
+    }
+};
+
+let is_valid_guess = $[](guess) {
+    guess >= 1 && guess <= 100
+};
+
+let guesses = std.array(4, 0);
+std.set(guesses, 0, 25);
+std.set(guesses, 1, 50);
+std.set(guesses, 2, 37);
+std.set(guesses, 3, 42);
+
+let result = loop {
+    if attempts >= max_attempts { break "Game over - too many attempts"; };
+    if attempts >= std.len(guesses) { break "No more guesses"; };
+
+    let current_guess = std.get(guesses, attempts);
+    attempts = attempts + 1;
+    if !is_valid_guess(current_guess) {
+        std.print("Guess must be between 1 and 100");
+        continue;
+    };
+
+    let feedback = check_guess(current_guess, target);
+    std.print("Attempt " + std.str(attempts) + ": " + std.str(current_guess) + " - " + feedback);
+    if feedback == "Correct!" { break "You won!"; };
+};
+
+std.assert(attempts == 4);
+std.assert(result == "You won!");
+std.print(result);
+result

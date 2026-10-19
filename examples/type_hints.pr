@@ -1,0 +1,7 @@
+let length_squared = $[](point) {
+    point.x * point.x + point.y * point.y
+};
+let point = @{ let x = 3.0; let y = 4.0; };
+let result = length_squared(point);
+std.assert(result == 25.0);
+std.print(result);

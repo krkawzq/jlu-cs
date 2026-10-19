@@ -1,0 +1,75 @@
+// N×N 整数矩阵乘法 C = A × B，再对 C 做加权求和。
+// A、B 的元素按公式即时生成，内核只做局部整数运算，可走 JIT 的局部标量路径。
+let kernel = @jit $[](n) {
+    let checksum = 0;
+    let i = 0;
+    loop {
+        if i == n { break checksum; };
+        let j = 0;
+        loop {
+            if j == n { break; };
+            let c = 0;
+            let k = 0;
+            loop {
+                if k == n { break; };
+                let a = (i * 7 + k * 3) % 23 - 11;
+                let b = (k * 5 + j * 11) % 19 - 9;
+                c = c + a * b;
+                k = k + 1;
+            };
+            checksum = checksum + c * ((i + 2 * j) % 7 + 1);
+            j = j + 1;
+        };
+        i = i + 1;
+    }
+};
+
+let inspect = std.env.argc() > 0 && std.env.arg(0) == "--inspect";
+if inspect {
+    std.inspect.compile(kernel);
+    let prepared = std.inspect.jit(kernel);
+    std.assert(prepared.native_calls == 0);
+    let native = std.inspect.native(kernel);
+    std.assert(native.hex == std.inspect.machine_code(kernel));
+    std.assert(native.assembly == std.inspect.disassemble(kernel));
+    std.fs.write_text("kernel.hex", native.hex);
+    std.fs.write_text("kernel.asm", native.assembly);
+    std.fs.write_text("kernel.ll", std.inspect.llvm_ir(kernel));
+    std.fs.write_text("kernel-source.pr", std.inspect.source(kernel));
+    let result = kernel(8);
+    let executed = std.inspect.jit(kernel);
+    let metadata = "origin=" + native.origin + "\naddress=" + native.address
+        + "\nsize=" + std.str(native.size) + "\nsymbol=" + native.symbol
+        + "\ntriple=" + native.triple + "\ncompile_ms=" + std.str(prepared.compile_ms)
+        + "\ncalls_before=" + std.str(prepared.native_calls)
+        + "\ncalls_after=" + std.str(executed.native_calls)
+        + "\nvalidation_size=8\nvalidation_result=" + std.str(result) + "\n";
+    std.fs.write_text("kernel.meta", metadata);
+    std.write(metadata);
+    std.print("=== loaded machine code / hex ===");
+    std.print(native.hex);
+    std.print("=== LLVM disassembly of loaded bytes ===");
+    std.print(native.assembly);
+} else {
+    let n = 80;
+    let start = std.time.now_ms();
+    let first = kernel(n);
+    let first_ms = std.time.now_ms() - start;
+    let repeats = 5;
+    let round = 0;
+    let total = 0;
+    let warm_start = std.time.now_ms();
+    loop {
+        if round == repeats { break; };
+        total = total + kernel(n);
+        round = round + 1;
+    };
+    let warm_ms = std.time.now_ms() - warm_start;
+    std.print("size=" + std.str(n));
+    std.print("multiply_adds=" + std.str(n * n * n));
+    std.print("first_ms=" + std.str(first_ms));
+    std.print("warm_total_ms=" + std.str(warm_ms));
+    std.print("repeats=" + std.str(repeats));
+    std.print("result=" + std.str(first));
+    std.print("checksum=" + std.str(total));
+};

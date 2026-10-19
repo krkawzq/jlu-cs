@@ -1,0 +1,3 @@
+std.print("Hello, Prim!");
+let greet = $[](name) { "Hello, " + name };
+std.print(greet("closure"));

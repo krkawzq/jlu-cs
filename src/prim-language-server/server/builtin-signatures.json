@@ -1,0 +1,678 @@
+{
+  "source": "src/prim-rs/src/builtins.rs",
+  "registrySha256": "06e42ffb2a5d33266b9a9abcd83625fbb2af80e6c144ca038f6a0d49a2870f46",
+  "entries": [
+    {
+      "name": "std.ast.tokens",
+      "arity": 1
+    },
+    {
+      "name": "std.ast.parse",
+      "arity": 1
+    },
+    {
+      "name": "std.ast.dump",
+      "arity": 1
+    },
+    {
+      "name": "std.ast.walk",
+      "arity": 1
+    },
+    {
+      "name": "std.ast.find",
+      "arity": 2
+    },
+    {
+      "name": "std.ast.source_segment",
+      "arity": 2
+    },
+    {
+      "name": "std.ast.is_node",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.is_callable",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.is_function",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.is_builtin",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.is_jit",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.describe",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.members",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.signature",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.captures",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.source",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.location",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.ast",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.core_ir",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.stack",
+      "arity": 0
+    },
+    {
+      "name": "std.inspect.builtins",
+      "arity": 0
+    },
+    {
+      "name": "std.inspect.jit",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.compile",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.optimized_ir",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.llvm_ir",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.machine_code",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.disassemble",
+      "arity": 1
+    },
+    {
+      "name": "std.inspect.native",
+      "arity": 1
+    },
+    {
+      "name": "std.print",
+      "arity": 1
+    },
+    {
+      "name": "std.write",
+      "arity": 1
+    },
+    {
+      "name": "std.flush",
+      "arity": 0
+    },
+    {
+      "name": "std.read_line",
+      "arity": 0
+    },
+    {
+      "name": "std.input",
+      "arity": 1
+    },
+    {
+      "name": "std.eprint",
+      "arity": 1
+    },
+    {
+      "name": "std.ewrite",
+      "arity": 1
+    },
+    {
+      "name": "std.eflush",
+      "arity": 0
+    },
+    {
+      "name": "std.read_all",
+      "arity": 0
+    },
+    {
+      "name": "std.assert",
+      "arity": 1
+    },
+    {
+      "name": "std.assert_eq",
+      "arity": 2
+    },
+    {
+      "name": "std.fail",
+      "arity": 1
+    },
+    {
+      "name": "std.type",
+      "arity": 1
+    },
+    {
+      "name": "std.str",
+      "arity": 1
+    },
+    {
+      "name": "std.int",
+      "arity": 1
+    },
+    {
+      "name": "std.float",
+      "arity": 1
+    },
+    {
+      "name": "std.parse_int",
+      "arity": 1
+    },
+    {
+      "name": "std.parse_float",
+      "arity": 1
+    },
+    {
+      "name": "std.len",
+      "arity": 1
+    },
+    {
+      "name": "std.array",
+      "arity": 2
+    },
+    {
+      "name": "std.get",
+      "arity": 2
+    },
+    {
+      "name": "std.set",
+      "arity": 3
+    },
+    {
+      "name": "std.has",
+      "arity": 2
+    },
+    {
+      "name": "jit",
+      "arity": 1
+    },
+    {
+      "name": "std.gc.collect",
+      "arity": 0
+    },
+    {
+      "name": "std.gc.stats",
+      "arity": 0
+    },
+    {
+      "name": "std.time.now_ms",
+      "arity": 0
+    },
+    {
+      "name": "std.time.unix_ms",
+      "arity": 0
+    },
+    {
+      "name": "std.time.sleep",
+      "arity": 1
+    },
+    {
+      "name": "std.time.format_utc",
+      "arity": 1
+    },
+    {
+      "name": "std.time.parts",
+      "arity": 1
+    },
+    {
+      "name": "std.random.seed",
+      "arity": 1
+    },
+    {
+      "name": "std.random.int",
+      "arity": 2
+    },
+    {
+      "name": "std.random.float",
+      "arity": 0
+    },
+    {
+      "name": "std.random.bool",
+      "arity": 0
+    },
+    {
+      "name": "std.random.float_range",
+      "arity": 2
+    },
+    {
+      "name": "std.random.choice",
+      "arity": 1
+    },
+    {
+      "name": "std.random.shuffle",
+      "arity": 1
+    },
+    {
+      "name": "std.random.bytes",
+      "arity": 1
+    },
+    {
+      "name": "std.random.normal",
+      "arity": 0
+    },
+    {
+      "name": "std.text.at",
+      "arity": 2
+    },
+    {
+      "name": "std.text.slice",
+      "arity": 3
+    },
+    {
+      "name": "std.text.repeat",
+      "arity": 2
+    },
+    {
+      "name": "std.text.trim",
+      "arity": 1
+    },
+    {
+      "name": "std.text.contains",
+      "arity": 2
+    },
+    {
+      "name": "std.text.starts_with",
+      "arity": 2
+    },
+    {
+      "name": "std.text.ends_with",
+      "arity": 2
+    },
+    {
+      "name": "std.text.replace",
+      "arity": 3
+    },
+    {
+      "name": "std.text.index_of",
+      "arity": 2
+    },
+    {
+      "name": "std.text.last_index_of",
+      "arity": 2
+    },
+    {
+      "name": "std.text.split",
+      "arity": 2
+    },
+    {
+      "name": "std.text.lines",
+      "arity": 1
+    },
+    {
+      "name": "std.text.join",
+      "arity": 2
+    },
+    {
+      "name": "std.text.upper",
+      "arity": 1
+    },
+    {
+      "name": "std.text.lower",
+      "arity": 1
+    },
+    {
+      "name": "std.text.pad_start",
+      "arity": 3
+    },
+    {
+      "name": "std.text.pad_end",
+      "arity": 3
+    },
+    {
+      "name": "std.text.code_at",
+      "arity": 2
+    },
+    {
+      "name": "std.text.from_code",
+      "arity": 1
+    },
+    {
+      "name": "std.text.fixed",
+      "arity": 2
+    },
+    {
+      "name": "std.text.parse_int_radix",
+      "arity": 2
+    },
+    {
+      "name": "std.math.abs",
+      "arity": 1
+    },
+    {
+      "name": "std.math.min",
+      "arity": 2
+    },
+    {
+      "name": "std.math.max",
+      "arity": 2
+    },
+    {
+      "name": "std.math.clamp",
+      "arity": 3
+    },
+    {
+      "name": "std.math.floor",
+      "arity": 1
+    },
+    {
+      "name": "std.math.ceil",
+      "arity": 1
+    },
+    {
+      "name": "std.math.round",
+      "arity": 1
+    },
+    {
+      "name": "std.math.sqrt",
+      "arity": 1
+    },
+    {
+      "name": "std.math.pow",
+      "arity": 2
+    },
+    {
+      "name": "std.math.sin",
+      "arity": 1
+    },
+    {
+      "name": "std.math.cos",
+      "arity": 1
+    },
+    {
+      "name": "std.math.tan",
+      "arity": 1
+    },
+    {
+      "name": "std.math.asin",
+      "arity": 1
+    },
+    {
+      "name": "std.math.acos",
+      "arity": 1
+    },
+    {
+      "name": "std.math.atan",
+      "arity": 1
+    },
+    {
+      "name": "std.math.atan2",
+      "arity": 2
+    },
+    {
+      "name": "std.math.exp",
+      "arity": 1
+    },
+    {
+      "name": "std.math.ln",
+      "arity": 1
+    },
+    {
+      "name": "std.math.log",
+      "arity": 2
+    },
+    {
+      "name": "std.math.log2",
+      "arity": 1
+    },
+    {
+      "name": "std.math.log10",
+      "arity": 1
+    },
+    {
+      "name": "std.math.trunc",
+      "arity": 1
+    },
+    {
+      "name": "std.math.hypot",
+      "arity": 2
+    },
+    {
+      "name": "std.math.pi",
+      "arity": 0
+    },
+    {
+      "name": "std.math.sign",
+      "arity": 1
+    },
+    {
+      "name": "std.bits.and",
+      "arity": 2
+    },
+    {
+      "name": "std.bits.or",
+      "arity": 2
+    },
+    {
+      "name": "std.bits.xor",
+      "arity": 2
+    },
+    {
+      "name": "std.bits.not",
+      "arity": 1
+    },
+    {
+      "name": "std.bits.shl",
+      "arity": 2
+    },
+    {
+      "name": "std.bits.shr",
+      "arity": 2
+    },
+    {
+      "name": "std.bits.count_ones",
+      "arity": 1
+    },
+    {
+      "name": "std.bits.leading_zeros",
+      "arity": 1
+    },
+    {
+      "name": "std.bits.trailing_zeros",
+      "arity": 1
+    },
+    {
+      "name": "std.seq.slice",
+      "arity": 3
+    },
+    {
+      "name": "std.seq.reverse",
+      "arity": 1
+    },
+    {
+      "name": "std.seq.sort",
+      "arity": 1
+    },
+    {
+      "name": "std.seq.fill",
+      "arity": 2
+    },
+    {
+      "name": "std.seq.index_of",
+      "arity": 2
+    },
+    {
+      "name": "std.seq.copy",
+      "arity": 1
+    },
+    {
+      "name": "std.seq.concat",
+      "arity": 2
+    },
+    {
+      "name": "std.env.argc",
+      "arity": 0
+    },
+    {
+      "name": "std.env.arg",
+      "arity": 1
+    },
+    {
+      "name": "std.env.get",
+      "arity": 1
+    },
+    {
+      "name": "std.env.cwd",
+      "arity": 0
+    },
+    {
+      "name": "std.env.args",
+      "arity": 0
+    },
+    {
+      "name": "std.env.home",
+      "arity": 0
+    },
+    {
+      "name": "std.env.temp_dir",
+      "arity": 0
+    },
+    {
+      "name": "std.process.pid",
+      "arity": 0
+    },
+    {
+      "name": "std.process.exit",
+      "arity": 1
+    },
+    {
+      "name": "std.fs.read_text",
+      "arity": 1
+    },
+    {
+      "name": "std.fs.write_text",
+      "arity": 2
+    },
+    {
+      "name": "std.fs.append_text",
+      "arity": 2
+    },
+    {
+      "name": "std.fs.exists",
+      "arity": 1
+    },
+    {
+      "name": "std.fs.list_dir",
+      "arity": 1
+    },
+    {
+      "name": "std.fs.mkdir_all",
+      "arity": 1
+    },
+    {
+      "name": "std.fs.remove_file",
+      "arity": 1
+    },
+    {
+      "name": "std.fs.remove_dir",
+      "arity": 1
+    },
+    {
+      "name": "std.fs.rename",
+      "arity": 2
+    },
+    {
+      "name": "std.fs.copy_file",
+      "arity": 2
+    },
+    {
+      "name": "std.fs.file_size",
+      "arity": 1
+    },
+    {
+      "name": "std.fs.is_file",
+      "arity": 1
+    },
+    {
+      "name": "std.fs.is_dir",
+      "arity": 1
+    },
+    {
+      "name": "std.term.enter",
+      "arity": 0
+    },
+    {
+      "name": "std.term.leave",
+      "arity": 0
+    },
+    {
+      "name": "std.term.is_tty",
+      "arity": 0
+    },
+    {
+      "name": "std.term.size",
+      "arity": 0
+    },
+    {
+      "name": "std.term.clear",
+      "arity": 0
+    },
+    {
+      "name": "std.term.home",
+      "arity": 0
+    },
+    {
+      "name": "std.term.move",
+      "arity": 2
+    },
+    {
+      "name": "std.term.cursor",
+      "arity": 1
+    },
+    {
+      "name": "std.term.color",
+      "arity": 2
+    },
+    {
+      "name": "std.term.reset",
+      "arity": 0
+    },
+    {
+      "name": "std.term.poll_key",
+      "arity": 1
+    },
+    {
+      "name": "std.term.color_rgb",
+      "arity": 2
+    },
+    {
+      "name": "std.term.bell",
+      "arity": 0
+    },
+    {
+      "name": "std.term.title",
+      "arity": 1
+    },
+    {
+      "name": "std.sys.os",
+      "arity": 0
+    },
+    {
+      "name": "std.sys.arch",
+      "arity": 0
+    }
+  ]
+}

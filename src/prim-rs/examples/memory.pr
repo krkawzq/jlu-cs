@@ -1,0 +1,18 @@
+let baseline = std.gc.stats().slots;
+{ let large = std.array(20000, "payload"); std.assert(std.len(large) == 20000); };
+std.gc.collect();
+std.print("extra live slots after leaving block: " + std.str(std.gc.stats().slots - baseline));
+std.print("arena capacity after collection: " + std.str(std.gc.stats().slot_capacity));
+let churn = @jit $[](rounds) {
+    let baseline = std.gc.stats().slots;
+    let i = 0;
+    loop {
+        if i == rounds { break; };
+        { let cycle = std.array(256, ()); std.set(cycle, 0, cycle); };
+        std.gc.collect();
+        std.assert(std.gc.stats().slots - baseline < 32);
+        i = i + 1;
+    };
+};
+churn(500);
+std.print("memory stress: 500 cyclic allocations completed with bounded live slots");

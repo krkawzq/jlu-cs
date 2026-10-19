@@ -1,0 +1,53 @@
+let limit = 100;
+
+let is_prime = $[](n) {
+    if n < 2 {
+        false
+    } else if n == 2 {
+        true
+    } else if n % 2 == 0 {
+        false
+    } else {
+        let divisor = 3;
+        loop {
+            if divisor * divisor > n { break true; };
+            if n % divisor == 0 { break false; };
+            divisor = divisor + 2;
+        }
+    }
+};
+
+let find_primes = $[is_prime](limit) {
+    // Fixed-capacity storage plus a count represents the populated prefix.
+    let items = std.array(limit, 0);
+    let count = 0;
+    let candidate = 2;
+    loop {
+        if candidate > limit { break; };
+        if is_prime(candidate) {
+            std.set(items, count, candidate);
+            count = count + 1;
+        };
+        candidate = candidate + 1;
+    };
+    @{ let items = items; let count = count; }
+};
+
+let format_primes = $[limit](primes) {
+    let result = "Primes up to " + std.str(limit) + ": ";
+    let index = 0;
+    loop {
+        if index >= primes.count { break; };
+        if index > 0 { result = result + " "; };
+        result = result + std.str(std.get(primes.items, index));
+        index = index + 1;
+    };
+    result
+};
+
+let primes = find_primes(limit);
+std.assert(primes.count == 25);
+std.assert(std.get(primes.items, primes.count - 1) == 97);
+let output = format_primes(primes);
+std.print(output);
+output

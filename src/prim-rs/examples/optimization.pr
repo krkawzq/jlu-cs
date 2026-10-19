@@ -1,0 +1,38 @@
+// Compare -O0 and -O2 with this same source and inspect both LLVM IR stages.
+let sum_to = @jit $[](n) {
+    let i = 0;
+    let sum = 0;
+    loop {
+        if i >= n { break sum; };
+        sum = sum + i;
+        i = i + 1;
+    }
+};
+std.inspect.compile(sum_to);
+let info = std.inspect.jit(sum_to);
+std.print("lowering: " + info.lowering);
+std.print(info.opt_level);
+std.print(info.compile_ms);
+std.print(info.code_size);
+std.print("=== source ===");
+std.print(std.inspect.source(sum_to));
+std.print("=== AST ===");
+std.print(std.ast.dump(std.inspect.ast(sum_to)));
+std.print("=== Core IR ===");
+std.print(std.inspect.core_ir(sum_to));
+std.print("=== LLVM IR before optimization ===");
+std.print(std.inspect.llvm_ir(sum_to));
+std.print("=== LLVM IR after optimization ===");
+std.print(std.inspect.optimized_ir(sum_to));
+std.print("=== loaded machine code ===");
+std.print(std.inspect.machine_code(sum_to));
+std.print(std.inspect.disassemble(sum_to));
+std.assert(sum_to(20000) == 199990000);
+std.print("=== scalar calls ===");
+std.print(std.inspect.jit(sum_to).scalar_calls);
+// Shared captures retain the same slot semantics under every optimization level.
+let x = 1;
+let read = @jit $[&x]() { x + 1 };
+std.assert(read() == 2);
+x = 9;
+std.assert(read() == 10);

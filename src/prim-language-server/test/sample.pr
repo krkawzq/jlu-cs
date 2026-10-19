@@ -1,0 +1,61 @@
+// Prim Core 1 syntax sample
+/* block comment
+   with multiple lines */
+
+let answer = 42;
+let hex = 0xFF;
+let oct = 0o755;
+let bin = 0b10_10;
+let big = 1_000;
+let ratio = 0.5;
+let small = 2.5e-3;
+let scientific = 1e1_0;
+let text = "hello\nworld \u{1F600}";
+let alias = &answer;
+answer = answer + 1;
+
+let add = $[](x, y) { x + y };
+let snapshot = $[answer]() { answer };
+let shared = $[&answer]() {
+    answer = answer + 1;
+    answer
+};
+
+let Point = $[](x, y) {
+    @{ let x = x; let y = y; }
+};
+let p = Point(1, 2);
+p.x = 3;
+std.print(std.str(p.x));
+std.assert(add(1, 2) == 3);
+
+let factorial = $[](n) {
+    if n == 0 { 1 } else { n * self(n - 1) }
+};
+let traced = $[](f) {
+    $[f](x) { f(x) }
+};
+let double = @traced $[](x) { x * 2 };
+let sum_to = @jit $[](n) {
+    let i = 0;
+    let total = 0;
+    loop {
+        if i > n { break total; };
+        if i == 3 { i = i + 1; continue; };
+        total = total + i;
+        i = i + 1;
+    }
+};
+let early = $[](x) {
+    if x < 0 { return 0; };
+    x
+};
+let inc = $[](&target, delta) {
+    target = target + delta;
+};
+inc(&answer, 2);
+let empty_object = @{};
+let empty_block = {};
+let noop = $[]() {};
+let unit = ();
+true; false;

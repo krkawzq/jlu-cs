@@ -1,0 +1,12 @@
+let name = std.input("Your name: ");
+if name == () {
+    std.print("End of input.");
+} else {
+    std.print("Hello, " + std.text.trim(name) + "!");
+    let value = std.input("Enter an integer: ");
+    if value != () {
+        let number = std.parse_int(value);
+        if number == () { std.print("That was not a valid integer."); }
+        else { std.print("Its square is " + std.str(number * number)); };
+    };
+}

@@ -1,14 +1,22 @@
-.vscode
-.git
+# Rust build output
+target/
+**/*.rs.bk
+*.pdb
 
-build/*
-lib/*
+# Project-local build artifacts and legacy C++ tree
+/build/
+/lib/
+/src.bak/
+/release
+/debug
+/.fake
 
-release
-debug
+# VS Code extension
+node_modules/
+*.vsix
 
-src/include/lexer.hpp
-src/parser.c
-src/include/parser.h
-
-.fake
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+/tmp/

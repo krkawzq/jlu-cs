@@ -1,0 +1,28 @@
+// Source -> structured AST -> Core IR -> LLVM IR -> actual loaded machine code.
+let offset = 3;
+let add = @jit $[offset](x) { x + offset };
+std.print("=== signature ===");
+std.print(std.inspect.signature(add).text);
+std.print("=== source ===");
+std.print(std.inspect.source(add));
+std.print("=== AST ===");
+std.print(std.ast.dump(std.inspect.ast(add)));
+std.print("=== Core IR ===");
+std.print(std.inspect.core_ir(add));
+std.print("=== cold JIT state ===");
+std.print(std.inspect.jit(add).state);
+std.inspect.compile(add);
+std.print("=== compile without executing ===");
+std.print(std.inspect.jit(add).native_calls);
+std.print("=== LLVM IR ===");
+std.print(std.inspect.llvm_ir(add));
+std.print("=== loaded native code ===");
+let native = std.inspect.native(add);
+std.print(native.symbol + " at " + native.address + ", " + std.str(native.size) + " bytes");
+std.print(native.hex);
+std.print("=== LLVM disassembly ===");
+std.print(native.assembly);
+std.print("=== execution ===");
+std.print(add(39));
+std.print("native calls: " + std.str(std.inspect.jit(add).native_calls));
+std.print("native integer ops: " + std.str(std.inspect.jit(add).native_integer_ops));
