@@ -100,6 +100,8 @@ async function startTerminal(options,onEvent){
 window.PrimEditor={ready,colorize,initEditor,setCode,initTerminal,startTerminal,
   writeResult:result=>{terminal.reset();terminal.write((result.stdout||'（无标准输出）\n').replace(/\r?\n/g,'\r\n'));terminal.write('\r\n\x1b[38;5;173m── 诊断与统计 ──\x1b[0m\r\n');terminal.write((result.stderr||'（无诊断输出）\n').replace(/\r?\n/g,'\r\n'));},
   getLanguage:()=>editor?.getModel()?.getLanguageId(),
+  clear:()=>terminal?.reset(),
+  setFontSize:(px,terminalPx=px-1)=>{editor?.updateOptions({fontSize:px,lineHeight:Math.round(px*1.6)});terminalPx=Math.max(10,terminalPx);if(terminal&&terminal.options.fontSize!==terminalPx){terminal.options.fontSize=terminalPx;try{fit.fit();}catch{}}},
   getValue:()=>editor?.getValue()||'',setValue:text=>editor?.setValue(text),layout:()=>{editor?.layout();try{fit?.fit();}catch{}},
   stop:()=>{if(terminalSocket?.readyState===WebSocket.OPEN)terminalSocket.send(JSON.stringify({kind:'stop'}));},
   onStatus:callback=>listeners.add(callback),

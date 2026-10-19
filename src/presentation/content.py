@@ -75,6 +75,10 @@ def blocks(screen: str) -> list[Block]:
                 raise ValueError('表格列数不一致')
             result.append(Block('table', rows=rows, step=step))
             continue
+        if line.startswith('~ '):
+            result.append(Block('focus', line[2:].strip(), step=step))
+            i += 1
+            continue
         bullet = re.match(r'^(?:- |\d+\. )(.*)', line)
         if bullet:
             result.append(Block('bullet', plain(bullet.group(1)), step=step))

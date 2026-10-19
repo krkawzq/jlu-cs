@@ -147,7 +147,7 @@
     }
     node.dataset.steps=steps;node.append(body);
     const foot=make('footer','slide-foot'),who=Object.values(data.presenter).filter(Boolean).join(' · ');
-    foot.append(make('span','',slide.id==='01'&&who?who:'Prim · 只用闭包，能走多远？'),make('span','page-id',`${slide.id} / ${String(data.slides.length).padStart(2,'0')}`));node.append(foot);
+    foot.append(make('span','',slide.id==='01'&&who?who:data.metadata.title.replace('：',' · ')),make('span','page-id',`${slide.id} / ${String(data.slides.length).padStart(2,'0')}`));node.append(foot);
     return node;
   }
   async function build(){
@@ -196,10 +196,11 @@
   function selectDemo(id){
     const d=demoById(id);activeDemo=id;
     window.PrimEditor.setCode(id,store.get(`prim-demo-v3-${id}`)??d.code,data.workspace_uri,'prim');
-    $('rig').dataset.kind=d.kind;$('rig').dataset.demo=id;$('editor-name').textContent=d.tab;
+    $('rig').dataset.kind=d.kind;$('rig').dataset.demo=id;$('editor-name').textContent=d.tab;fitRig();
     window.PrimEditor.clear();$('run-status').textContent='尚未运行';$('run-status').className='';$('artifact').hidden=true;setMode(d.mode||'interpreter');modeLock();
   }
-  function fitRig(){const deck=$('deck').getBoundingClientRect().width;window.PrimEditor.setFontSize(Math.round(Math.max(12,Math.min(22,deck*.0102))));window.PrimEditor.layout();}
+  // The snake board needs at least 52×21 cells, so its terminal uses a smaller font.
+  function fitRig(){const deck=$('deck').getBoundingClientRect().width,px=Math.round(Math.max(12,Math.min(22,deck*.0102)));window.PrimEditor.setFontSize(px,activeDemo==='snake'?Math.round(px*.78):px-1);window.PrimEditor.layout();}
   async function mountRig(host){
     await initEditor();
     if(!host||!active()?.contains(host)||host.contains($('rig')))return;

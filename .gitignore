@@ -20,3 +20,4 @@ node_modules/
 .idea/
 .DS_Store
 /tmp/
+/src/presentation/
